@@ -20,6 +20,9 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400"],
 });
 
+// TODO: set metadataBase once Tim decides the production URL (Vercel domain
+// or custom domain). Until then, og:image/twitter:image resolve against
+// localhost in dev and the deploy preview origin in prod builds.
 export const metadata: Metadata = {
   title: "FLOAT — Your money. Any chain. Just send.",
   description:
