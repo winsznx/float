@@ -24,9 +24,9 @@ const jetbrainsMono = JetBrains_Mono({
 // or custom domain). Until then, og:image/twitter:image resolve against
 // localhost in dev and the deploy preview origin in prod builds.
 export const metadata: Metadata = {
-  title: "FLOAT — Your money. Any chain. Just send.",
+  title: "FLOAT. Your money. Any chain. Just send.",
   description:
-    "A chain-abstracted social money layer. Send, split, delegate, and commit — with zero chain awareness.",
+    "A chain-abstracted social money layer. Send, split, delegate, and commit, with zero chain awareness.",
 };
 
 export default function RootLayout({
