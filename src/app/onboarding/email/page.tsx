@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { sendMagicLink } from "@/lib/auth";
 
 export default function OnboardingEmailPage() {
@@ -40,6 +41,14 @@ export default function OnboardingEmailPage() {
             >
               Resend link
             </button>
+
+            {/* TODO: remove once real Magic link handling is wired; this only exists so the rest of onboarding is reachable without a live email link. */}
+            <Link
+              href="/onboarding/identity"
+              className="mt-3 rounded-md font-body text-[12px] text-float-muted/60 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+            >
+              Continue to identity setup
+            </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col items-center text-center">
