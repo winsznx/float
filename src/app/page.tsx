@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const MODES = [
   { name: "Send", subline: "Type a name. Not an address." },
   { name: "Split", subline: "Everyone settles from what they have." },
@@ -22,18 +24,19 @@ export default function Home() {
         </p>
 
         <div className="mt-12 w-full flex flex-col gap-3">
-          <button
-            type="button"
-            className="w-full rounded-full bg-float-signal px-6 py-4 font-body text-[15px] font-semibold text-float-heading transition-colors hover:bg-float-signal/90"
+          <Link
+            href="/onboarding/email"
+            className="w-full rounded-full bg-float-signal px-6 py-4 text-center font-body text-[15px] font-semibold text-float-heading transition-colors hover:bg-float-signal/90"
           >
             Continue with Email
-          </button>
-          <button
-            type="button"
-            className="w-full rounded-full border border-float-border bg-float-surface px-6 py-4 font-body text-[15px] font-medium text-float-body transition-colors hover:bg-float-surface-2"
+          </Link>
+          {/* TODO: wire real WalletConnect modal + EIP-7702 authorization prompt. */}
+          <Link
+            href="/onboarding/identity"
+            className="w-full rounded-full border border-float-border bg-float-surface px-6 py-4 text-center font-body text-[15px] font-medium text-float-body transition-colors hover:bg-float-surface-2"
           >
             Connect Wallet
-          </button>
+          </Link>
         </div>
 
         <div className="mt-16 w-full grid grid-cols-2 gap-3">
