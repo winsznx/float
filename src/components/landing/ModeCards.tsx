@@ -1,3 +1,9 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
 type IconProps = {
   className?: string;
 };
@@ -110,6 +116,49 @@ const MODES = [
 ] as const;
 
 export function ModeCards() {
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    gsap.registerPlugin(ScrollTrigger);
+
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    const cards = Array.from(
+      grid.querySelectorAll<HTMLElement>("[data-card-inner]")
+    );
+
+    if (prefersReducedMotion) {
+      gsap.set(cards, { opacity: 1, y: 0 });
+      return;
+    }
+
+    const ctx = gsap.context(() => {
+      gsap.set(cards, { opacity: 0, y: 24 });
+      gsap.to(cards, {
+        opacity: 1,
+        y: 0,
+        duration: 0.5,
+        ease: "power2.out",
+        stagger: 0.1,
+        scrollTrigger: {
+          trigger: grid,
+          start: "top 88%",
+          once: true,
+        },
+      });
+    }, grid);
+
+    const refreshOnFonts = () => ScrollTrigger.refresh();
+    document.fonts?.ready?.then(refreshOnFonts);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
     <section id="modes" className="px-6 py-24">
       <div className="mx-auto w-full max-w-5xl">
@@ -117,19 +166,21 @@ export function ModeCards() {
           Four ways to move money
         </h2>
 
-        <div className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div ref={gridRef} className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2">
           {MODES.map(({ name, subline, bgClass, rotateClass, Icon }) => (
             <div
               key={name}
               className={`relative rounded-2xl border-2 border-void ${bgClass} ${rotateClass} p-7 shadow-[6px_6px_0_0_var(--color-brut-line)] transition-transform duration-200 hover:-translate-y-1 hover:rotate-0`}
             >
-              <Icon className="absolute right-6 top-6 h-6 w-6" />
-              <span className="font-display text-[22px] font-bold text-void">
-                {name}
-              </span>
-              <p className="mt-2 max-w-[85%] font-body text-[14px] text-void/70">
-                {subline}
-              </p>
+              <div data-card-inner>
+                <Icon className="absolute right-6 top-6 h-6 w-6" />
+                <span className="font-display text-[22px] font-bold text-void">
+                  {name}
+                </span>
+                <p className="mt-2 max-w-[85%] font-body text-[14px] text-void/70">
+                  {subline}
+                </p>
+              </div>
             </div>
           ))}
         </div>

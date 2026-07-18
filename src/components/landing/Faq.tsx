@@ -37,45 +37,52 @@ const FAQS = [
 
 export function Faq() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
-  const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const innerRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+
     gsap.registerPlugin(ScrollTrigger);
 
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
-    const cards = cardRefs.current.filter(
+    const inners = innerRefs.current.filter(
       (el): el is HTMLDivElement => el !== null
     );
 
     if (prefersReducedMotion) {
-      gsap.set(cards, { opacity: 1, y: 0 });
+      gsap.set(inners, { opacity: 1, y: 0 });
       return;
     }
 
-    const triggers = cards.map((card) =>
-      gsap.fromTo(
-        card,
-        { opacity: 0, y: 24 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          ease: "power2.out",
-          scrollTrigger: {
-            trigger: card,
-            start: "top 88%",
-            once: true,
-          },
-        }
-      )
-    );
+    const ctx = gsap.context(() => {
+      inners.forEach((inner) => {
+        gsap.fromTo(
+          inner,
+          { opacity: 0, y: 24 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.5,
+            ease: "power2.out",
+            scrollTrigger: {
+              trigger: inner,
+              start: "top 88%",
+              once: true,
+            },
+          }
+        );
+      });
+    }, list);
 
-    return () => {
-      triggers.forEach((tween) => tween.scrollTrigger?.kill());
-    };
+    const refreshOnFonts = () => ScrollTrigger.refresh();
+    document.fonts?.ready?.then(refreshOnFonts);
+
+    return () => ctx.revert();
   }, []);
 
   return (
@@ -85,33 +92,36 @@ export function Faq() {
           Questions people actually ask
         </h2>
 
-        <div className="mt-12 flex flex-col gap-5">
+        <div ref={listRef} className="mt-12 flex flex-col gap-5">
           {FAQS.map((faq, index) => {
             const isOpen = openIndex === index;
             return (
               <div
                 key={faq.question}
-                ref={(el) => {
-                  cardRefs.current[index] = el;
-                }}
-                className={`rounded-2xl border-2 border-void ${faq.bgClass} ${faq.rotateClass} p-6 opacity-0 shadow-[5px_5px_0_0_var(--color-brut-line)]`}
+                className={`rounded-2xl border-2 border-void ${faq.bgClass} ${faq.rotateClass} p-6 shadow-[5px_5px_0_0_var(--color-brut-line)]`}
               >
-                <button
-                  type="button"
-                  onClick={() => setOpenIndex(isOpen ? null : index)}
-                  aria-expanded={isOpen}
-                  className="flex w-full items-center justify-between gap-4 text-left font-body text-[16px] font-semibold text-void"
+                <div
+                  ref={(el) => {
+                    innerRefs.current[index] = el;
+                  }}
                 >
-                  {faq.question}
-                  <span aria-hidden="true" className="shrink-0 text-xl leading-none">
-                    {isOpen ? "−" : "+"}
-                  </span>
-                </button>
-                {isOpen && (
-                  <p className="mt-4 font-body text-[14px] leading-relaxed text-void/75">
-                    {faq.answer}
-                  </p>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setOpenIndex(isOpen ? null : index)}
+                    aria-expanded={isOpen}
+                    className="flex w-full items-center justify-between gap-4 text-left font-body text-[16px] font-semibold text-void"
+                  >
+                    {faq.question}
+                    <span aria-hidden="true" className="shrink-0 text-xl leading-none">
+                      {isOpen ? "−" : "+"}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <p className="mt-4 font-body text-[14px] leading-relaxed text-void/75">
+                      {faq.answer}
+                    </p>
+                  )}
+                </div>
               </div>
             );
           })}

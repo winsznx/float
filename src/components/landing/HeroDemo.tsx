@@ -5,7 +5,7 @@ import gsap from "gsap";
 
 const CYCLE_MS = 3200;
 
-type PanelId = "send" | "split" | "leash";
+type PanelId = "send" | "split" | "leash" | "pledge";
 
 const PANELS: Array<{
   id: PanelId;
@@ -16,6 +16,7 @@ const PANELS: Array<{
   { id: "send", label: "Send", accent: "var(--color-coral)", swatchClass: "bg-coral" },
   { id: "split", label: "Split", accent: "var(--color-mint)", swatchClass: "bg-mint" },
   { id: "leash", label: "Leash", accent: "var(--color-lav)", swatchClass: "bg-lav" },
+  { id: "pledge", label: "Pledge", accent: "var(--color-signal)", swatchClass: "bg-signal-faint" },
 ];
 
 function SendPanel() {
@@ -75,10 +76,26 @@ function LeashPanel() {
   );
 }
 
+function PledgePanel() {
+  return (
+    <div className="flex h-full flex-col justify-between">
+      <div>
+        <p className="font-mono text-[11px] uppercase tracking-wide text-muted">Goal</p>
+        <p className="mt-1 font-body text-[15px] font-medium text-text">Launch by Friday</p>
+        <p className="mt-6 font-display text-3xl font-bold text-text">$200 locked</p>
+      </div>
+      <div className="rounded-full border-2 border-void bg-signal-faint px-6 py-3 text-center font-body text-[14px] font-semibold text-text shadow-[4px_4px_0_0_var(--color-brut-line)]">
+        Witness: @co-founder
+      </div>
+    </div>
+  );
+}
+
 const PANEL_CONTENT: Record<PanelId, () => React.ReactElement> = {
   send: SendPanel,
   split: SplitPanel,
   leash: LeashPanel,
+  pledge: PledgePanel,
 };
 
 export function HeroDemo() {
