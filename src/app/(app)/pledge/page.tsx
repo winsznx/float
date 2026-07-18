@@ -422,8 +422,8 @@ export default function PledgePage() {
             failureLabel={pledge.failureDestinationLabel}
             deadline={pledge.deadline}
             status="locked"
-            // TODO: wire native share sheet / public share card generation (see PRD Pledge public share card).
-            onSharePledge={() => {}}
+            // TODO: wire real public share card generation once that surface exists (see PRD Pledge public share card).
+            shareLink={`float.app/pledge/${pledge.pledgeId}`}
           />
           <Link
             href="/home"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Lock } from "lucide-react";
 
 type PledgeCardProps = {
@@ -10,7 +11,7 @@ type PledgeCardProps = {
   deadline: string;
   status: "review" | "locked";
   isAtRisk?: boolean;
-  onSharePledge?: () => void;
+  shareLink?: string;
 };
 
 function formatCurrency(value: number): string {
@@ -38,9 +39,21 @@ export function PledgeCard({
   deadline,
   status,
   isAtRisk = false,
-  onSharePledge,
+  shareLink,
 }: PledgeCardProps) {
   const stakeColor = isAtRisk ? "text-coral" : "text-signal";
+  const [copied, setCopied] = useState(false);
+
+  async function handleShare() {
+    if (!shareLink) return;
+    try {
+      await navigator.clipboard.writeText(shareLink);
+    } catch {
+      // clipboard unavailable in this environment; nothing to fall back to in this mocked phase
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   return (
     <div className="w-full rounded-2xl border-2 border-void bg-surface p-8 shadow-[7px_7px_0_0_var(--color-brut-line)]">
@@ -72,13 +85,13 @@ export function PledgeCard({
         Witness: {witnessLabel || "none"} &middot; Due {formatDeadline(deadline)}
       </p>
 
-      {onSharePledge && (
+      {shareLink && (
         <button
           type="button"
-          onClick={onSharePledge}
+          onClick={handleShare}
           className="mt-6 font-body text-sm font-medium text-text transition-colors hover:text-signal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
         >
-          Share pledge
+          {copied ? "Copied" : "Share pledge"}
         </button>
       )}
     </div>

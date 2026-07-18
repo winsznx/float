@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import { ModePill } from "@/components/ModePill";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
-import { generateSplitLink, getSplitStatus } from "@/lib/split";
+import { generateSplitLink, getSplitStatus, settleMember } from "@/lib/split";
 import type { IdentityResolution } from "@/lib/identity";
 import type { MemberStatus } from "@/lib/split";
 
@@ -62,6 +62,7 @@ function MemberAvatar() {
 
 function DashboardStage({ splitId }: { splitId: string }) {
   const [statuses, setStatuses] = useState<MemberStatus[] | null>(null);
+  const [settlingInput, setSettlingInput] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +73,19 @@ function DashboardStage({ splitId }: { splitId: string }) {
       cancelled = true;
     };
   }, [splitId]);
+
+  async function handleSettle(input: string) {
+    setSettlingInput(input);
+    await settleMember(splitId, input);
+    setStatuses((prev) =>
+      prev
+        ? prev.map((status) =>
+            status.input === input ? { ...status, settled: true } : status
+          )
+        : prev
+    );
+    setSettlingInput(null);
+  }
 
   if (!statuses) {
     return (
@@ -107,19 +121,21 @@ function DashboardStage({ splitId }: { splitId: string }) {
               <span className="font-body text-sm text-muted">
                 {formatCurrency(status.amount)}
               </span>
-              <span
-                className={`flex items-center gap-1.5 font-body text-[12px] ${
-                  status.settled ? "text-text" : "text-muted"
-                }`}
-              >
-                <span
-                  aria-hidden="true"
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    status.settled ? "bg-mint" : "bg-muted-2"
-                  }`}
-                />
-                {status.settled ? "Settled" : "Pending"}
-              </span>
+              {status.settled ? (
+                <span className="flex items-center gap-1.5 font-body text-[12px] text-text">
+                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-mint" />
+                  Settled
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleSettle(status.input)}
+                  disabled={settlingInput === status.input}
+                  className="rounded-full border-2 border-void bg-mint px-3 py-1 font-body text-[12px] font-medium text-void shadow-[2px_2px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0_0_0_0_var(--color-brut-line)] disabled:opacity-60 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-mint)]"
+                >
+                  {settlingInput === status.input ? "Settling" : "Settle"}
+                </button>
+              )}
             </div>
           </div>
         ))}

@@ -23,3 +23,10 @@ export async function getSplitStatus(splitId: string): Promise<MemberStatus[]> {
   await new Promise((resolve) => setTimeout(resolve, 500));
   return MOCK_STATUS;
 }
+
+// TODO: replace mock with real one-tap settle call (see PRD Split Flow, organizer dashboard).
+export async function settleMember(splitId: string, input: string): Promise<void> {
+  void splitId;
+  void input;
+  await new Promise((resolve) => setTimeout(resolve, 500));
+}

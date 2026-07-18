@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkHandleAvailability } from "@/lib/identity";
 
@@ -12,6 +12,14 @@ export default function OnboardingIdentityPage() {
   const [result, setResult] = useState<{ handle: string; available: boolean } | null>(
     null
   );
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (photoUrl) URL.revokeObjectURL(photoUrl);
+    };
+  }, [photoUrl]);
 
   useEffect(() => {
     if (!handle) return;
@@ -39,7 +47,15 @@ export default function OnboardingIdentityPage() {
       : "checking";
 
   function handlePhotoTap() {
-    // TODO: wire real photo upload / picker once storage is decided.
+    fileInputRef.current?.click();
+  }
+
+  function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    // TODO: replace local preview with a real upload once storage is decided.
+    setPhotoUrl(URL.createObjectURL(file));
   }
 
   return (
@@ -56,12 +72,28 @@ export default function OnboardingIdentityPage() {
           <button
             type="button"
             onClick={handlePhotoTap}
-            aria-label="Add profile photo"
-            className="mt-7 flex h-[76px] w-[76px] items-center justify-center rounded-full border-2 border-dashed text-muted-2 transition-colors hover:bg-void-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
+            aria-label={photoUrl ? "Change profile photo" : "Add profile photo"}
+            className="mt-7 flex h-[76px] w-[76px] items-center justify-center overflow-hidden rounded-full border-2 border-dashed text-muted-2 transition-colors hover:bg-void-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
             style={{ borderColor: "var(--color-border-strong)" }}
           >
-            <span className="font-mono text-[11px]">Add photo</span>
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- local object URL preview, not an optimizable static/remote image
+              <img
+                src={photoUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="font-mono text-[11px]">Add photo</span>
+            )}
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoChange}
+            className="sr-only"
+          />
 
           <label htmlFor="handle" className="sr-only">
             Handle
