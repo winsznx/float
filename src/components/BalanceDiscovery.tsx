@@ -93,9 +93,9 @@ export function BalanceDiscovery() {
             ref={(el) => {
               chainRefs.current[i] = el;
             }}
-            className="flex items-center gap-2 font-body text-[15px] text-float-body"
+            className="flex items-center gap-2 font-body text-[15px] text-text"
           >
-            <span className="text-float-muted">{balance.chain}</span>
+            <span className="text-muted">{balance.chain}</span>
             <span className="font-mono">{formatCurrency(balance.value)}</span>
           </div>
         ))}
@@ -108,11 +108,11 @@ export function BalanceDiscovery() {
             <div
               ref={glowRef}
               className="absolute inset-0 -z-10 scale-150 rounded-full opacity-0 blur-2xl"
-              style={{ backgroundColor: "var(--float-signal-glow)" }}
+              style={{ backgroundColor: "var(--color-signal-dim)" }}
             />
             <span
               ref={valueRef}
-              className="font-display text-[40px] font-extrabold text-float-heading"
+              className="font-display text-[40px] font-bold text-text"
             >
               $0.00
             </span>
@@ -121,7 +121,7 @@ export function BalanceDiscovery() {
       </div>
 
       <p
-        className={`mt-8 text-center font-body text-[15px] text-float-body transition-opacity duration-300 ${
+        className={`mt-8 text-center font-body text-[14px] text-muted transition-opacity duration-300 ${
           revealed ? "opacity-100" : "opacity-0"
         }`}
       >
@@ -130,7 +130,7 @@ export function BalanceDiscovery() {
 
       <Link
         href="/home"
-        className={`mt-8 w-full rounded-full bg-float-signal px-6 py-4 text-center font-body text-[15px] font-semibold text-float-heading transition-colors hover:bg-float-signal/90 ${
+        className={`mt-6 w-full rounded-full border-2 border-void bg-signal px-6 py-4 text-center font-body text-[15px] font-medium text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)] ${
           revealed ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >

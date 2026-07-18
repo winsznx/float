@@ -25,19 +25,19 @@ export default function OnboardingEmailPage() {
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-20">
-      <div className="w-full max-w-sm rounded-2xl border border-float-border bg-float-surface p-8">
+      <div className="w-full max-w-[420px] rounded-[22px] border-2 border-void bg-surface p-9 shadow-[7px_7px_0_0_var(--color-brut-line)]">
         {status === "sent" ? (
           <div className="flex flex-col items-center text-center">
-            <h1 className="font-display text-[28px] font-bold text-float-heading">
+            <h1 className="font-display text-[26px] font-bold text-text">
               Check your inbox
             </h1>
-            <p className="mt-3 font-body text-[15px] text-float-body">
+            <p className="mt-3 font-body text-[14px] leading-[1.5] text-muted">
               Link sent. Check your inbox to continue.
             </p>
             <button
               type="button"
               onClick={handleResend}
-              className="mt-6 rounded-md font-body text-[13px] text-float-muted underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+              className="mt-7 font-mono text-[13px] text-signal underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
             >
               Resend link
             </button>
@@ -45,17 +45,17 @@ export default function OnboardingEmailPage() {
             {/* TODO: remove once real Magic link handling is wired; this only exists so the rest of onboarding is reachable without a live email link. */}
             <Link
               href="/onboarding/identity"
-              className="mt-3 rounded-md font-body text-[12px] text-float-muted/60 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+              className="mt-3 font-mono text-[12px] text-muted-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
             >
               Continue to identity setup
             </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col items-center text-center">
-            <h1 className="font-display text-[28px] font-bold text-float-heading">
+            <h1 className="font-display text-[26px] font-bold text-text">
               Continue with email
             </h1>
-            <p className="mt-3 font-body text-[15px] text-float-body">
+            <p className="mt-3 font-body text-[14px] leading-[1.5] text-muted">
               We&apos;ll send a link. No password. No seed phrase.
             </p>
 
@@ -71,13 +71,13 @@ export default function OnboardingEmailPage() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@example.com"
-              className="mt-8 w-full rounded-md border border-float-border bg-float-surface-2 px-4 py-3 font-body text-[15px] text-float-body placeholder:text-float-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+              className="mt-7 w-full rounded-xl border-2 border-void bg-void-3 px-[18px] py-3.5 font-body text-[15px] text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
             />
 
             <button
               type="submit"
               disabled={status === "submitting"}
-              className="mt-4 w-full rounded-full bg-float-signal px-6 py-4 font-body text-[15px] font-semibold text-float-heading transition-colors hover:bg-float-signal/90 disabled:opacity-60"
+              className="mt-4 w-full rounded-full border-2 border-void bg-signal px-6 py-4 font-body text-[15px] font-medium text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] disabled:opacity-60 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[5px_5px_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
             >
               {status === "submitting" ? "Sending" : "Send link"}
             </button>

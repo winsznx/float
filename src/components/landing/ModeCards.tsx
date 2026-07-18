@@ -145,7 +145,7 @@ export function ModeCards() {
         {MODES.map(({ name, subline, bgClass, rotateClass, hoverClass, Icon, iconRotate }) => (
           <div
             key={name}
-            className={`relative rounded-[20px] border-2 border-void ${bgClass} ${rotateClass} ${hoverClass} p-9 shadow-[6px_6px_0_0_var(--color-brut-line)] transition-[transform,box-shadow] duration-200 hover:shadow-[9px_9px_0_0_var(--color-brut-line)]`}
+            className={`relative rounded-[20px] border-2 border-void ${bgClass} ${rotateClass} ${hoverClass} p-9 shadow-[6px_6px_0_0_var(--color-brut-line)] transition-[rotate,translate,box-shadow] duration-200 ease-out hover:shadow-[9px_9px_0_0_var(--color-brut-line)]`}
           >
             <div data-card-inner className="opacity-0">
               <Icon rotate={iconRotate} />

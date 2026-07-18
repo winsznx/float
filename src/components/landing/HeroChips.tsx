@@ -10,6 +10,10 @@ const CHIPS = [
   { label: "@diego.eth", swatchClass: "bg-mint", className: "bottom-[14%] left-[38%]", duration: 3.3, delay: 0.2 },
   { label: "@mei.eth", swatchClass: "bg-coral", className: "right-[3%] top-[6%]", duration: 2.8, delay: 0.5 },
   { label: "@zainab.eth", swatchClass: "bg-lav", className: "left-[14%] top-[80%]", duration: 3.0, delay: 0.8 },
+  { label: "@priya.eth", swatchClass: "bg-coral", className: "left-[17%] top-[3%]", duration: 2.7, delay: 0.15 },
+  { label: "@tomas.eth", swatchClass: "bg-mint", className: "left-[62%] top-[11%]", duration: 3.2, delay: 0.45 },
+  { label: "@lena.eth", swatchClass: "bg-lav", className: "right-[24%] top-[4%]", duration: 2.85, delay: 0.7 },
+  { label: "@yuki.eth", swatchClass: "bg-mint", className: "right-[42%] top-[15%]", duration: 3.05, delay: 0.35 },
 ] as const;
 
 export function HeroChips() {

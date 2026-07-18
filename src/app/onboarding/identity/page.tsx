@@ -44,12 +44,12 @@ export default function OnboardingIdentityPage() {
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-20">
-      <div className="w-full max-w-sm rounded-2xl border border-float-border bg-float-surface p-8">
+      <div className="w-full max-w-[420px] rounded-[22px] border-2 border-void bg-surface p-9 shadow-[7px_7px_0_0_var(--color-brut-line)]">
         <div className="flex flex-col items-center text-center">
-          <h1 className="font-display text-[28px] font-bold text-float-heading">
+          <h1 className="font-display text-[26px] font-bold text-text">
             Choose your handle
           </h1>
-          <p className="mt-3 font-body text-[15px] text-float-body">
+          <p className="mt-3 font-body text-[14px] leading-[1.5] text-muted">
             This is how people will find you on FLOAT.
           </p>
 
@@ -57,9 +57,10 @@ export default function OnboardingIdentityPage() {
             type="button"
             onClick={handlePhotoTap}
             aria-label="Add profile photo"
-            className="mt-8 flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-float-border text-float-muted transition-colors hover:bg-float-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+            className="mt-7 flex h-[76px] w-[76px] items-center justify-center rounded-full border-2 border-dashed text-muted-2 transition-colors hover:bg-void-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
+            style={{ borderColor: "var(--color-border-strong)" }}
           >
-            <span className="font-body text-[13px]">Add photo</span>
+            <span className="font-mono text-[11px]">Add photo</span>
           </button>
 
           <label htmlFor="handle" className="sr-only">
@@ -73,20 +74,21 @@ export default function OnboardingIdentityPage() {
             value={handle}
             onChange={(event) => setHandle(event.target.value)}
             placeholder="yourhandle"
-            className="mt-8 w-full rounded-md border border-float-border bg-float-surface-2 px-4 py-3 text-center font-body text-[15px] text-float-body placeholder:text-float-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+            className="mt-7 w-full rounded-xl border-2 border-void bg-void-3 px-[18px] py-3.5 text-center font-body text-[15px] text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
           />
 
           <div className="mt-2 h-5">
             {status === "checking" && (
-              <p className="font-body text-[13px] text-float-muted">Checking</p>
+              <p className="font-body text-[13px] text-muted">Checking</p>
             )}
             {status === "available" && (
-              <p className="font-body text-[13px] text-float-positive">
+              <p className="flex items-center justify-center gap-1.5 font-body text-[13px] text-text">
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-mint" />
                 {handle} is available.
               </p>
             )}
             {status === "taken" && (
-              <p className="font-body text-[13px] text-float-danger">
+              <p className="font-body text-[13px] text-coral">
                 {handle} is taken. Try another.
               </p>
             )}
@@ -96,7 +98,7 @@ export default function OnboardingIdentityPage() {
             type="button"
             disabled={status !== "available"}
             onClick={() => router.push("/onboarding/discovery")}
-            className="mt-6 w-full rounded-full bg-float-signal px-6 py-4 font-body text-[15px] font-semibold text-float-heading transition-colors hover:bg-float-signal/90 disabled:opacity-60"
+            className="mt-5 w-full rounded-full border-2 border-void bg-signal px-6 py-4 font-body text-[15px] font-medium text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] disabled:opacity-60 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[5px_5px_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
           >
             Continue
           </button>

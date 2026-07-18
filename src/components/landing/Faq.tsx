@@ -98,7 +98,7 @@ export function Faq() {
           return (
             <div
               key={faq.question}
-              className={`rounded-[26px] border-2 border-void ${faq.bgClass} ${faq.rotateClass} px-7 py-[22px] text-void transition-[transform,box-shadow] duration-150 hover:translate-x-[3px] hover:translate-y-[3px] hover:rotate-0 hover:shadow-[0_0_0_0_var(--color-brut-line)]`}
+              className={`rounded-[26px] border-2 border-void ${faq.bgClass} ${faq.rotateClass} px-7 py-[22px] text-void transition-[rotate,translate,box-shadow] duration-150 ease-out hover:translate-x-[3px] hover:translate-y-[3px] hover:rotate-0 hover:shadow-[0_0_0_0_var(--color-brut-line)]`}
               style={{ boxShadow: "5px 5px 0 0 var(--color-brut-line)" }}
             >
               <div
