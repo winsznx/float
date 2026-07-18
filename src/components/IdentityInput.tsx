@@ -61,7 +61,10 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
 
   return (
     <div className="w-full">
-      <label htmlFor="recipient" className="font-body text-xs text-float-muted">
+      <label
+        htmlFor="recipient"
+        className="font-mono text-xs uppercase tracking-wide text-muted"
+      >
         To
       </label>
       <input
@@ -72,7 +75,7 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
         value={value}
         onChange={(event) => setValue(event.target.value)}
         placeholder="name.eth, @handle, or email"
-        className="mt-2 w-full rounded-md border border-float-border bg-float-surface-2 px-4 py-3 font-body text-[15px] text-float-body placeholder:text-float-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+        className="mt-2 w-full rounded-md border-2 border-void bg-void-3 px-4 py-3 font-body text-[15px] text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
       />
 
       <div className="mt-4 min-h-10">
@@ -80,14 +83,14 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
           <div className="flex items-center gap-2">
             <span
               aria-hidden="true"
-              className="h-3 w-3 animate-spin rounded-full border border-float-signal border-t-transparent motion-reduce:animate-none"
+              className="h-3 w-3 animate-spin rounded-full border border-signal border-t-transparent motion-reduce:animate-none"
             />
-            <p className="font-body text-[13px] text-float-muted">Resolving</p>
+            <p className="font-body text-[13px] text-muted">Resolving</p>
           </div>
         )}
 
         {status === "resolved" && resolution && (
-          <p className="font-body text-[13px] text-float-muted">
+          <p className="font-body text-[13px] text-muted">
             Found. {resolution.input} on {resolution.chains.join(" + ")}.
           </p>
         )}
@@ -97,13 +100,13 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
             <div className="flex items-center gap-2">
               <span
                 aria-hidden="true"
-                className="h-1.5 w-1.5 rounded-full bg-float-warning"
+                className="h-1.5 w-1.5 rounded-full bg-signal"
               />
-              <p className="font-body text-[13px] text-float-muted">
+              <p className="font-body text-[13px] text-muted">
                 {resolution.input} will receive a claim link
               </p>
             </div>
-            <p className="mt-1 font-body text-[11px] uppercase tracking-wide text-float-muted">
+            <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted-2">
               New to FLOAT
             </p>
           </div>

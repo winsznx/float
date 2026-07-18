@@ -22,14 +22,17 @@ export function ModePill() {
     <div className="flex w-full gap-2 overflow-x-auto">
       {MODES.map(({ label, href }) => {
         const isActive = pathname === href || pathname.startsWith(`${href}/`);
+        const isSend = href === "/send";
         return (
           <Link
             key={href}
             href={href}
-            className={`rounded-full px-4 py-2 font-body text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)] ${
+            className={`shrink-0 rounded-full border-2 px-4 py-2 font-body text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-dim)] ${
               isActive
-                ? "bg-float-signal text-float-heading"
-                : "text-float-muted hover:-translate-y-px hover:text-float-body"
+                ? `border-void text-void shadow-[3px_3px_0_0_var(--color-brut-line)] ${
+                    isSend ? "bg-coral" : "bg-signal"
+                  }`
+                : "border-border bg-surface text-muted hover:text-text"
             }`}
           >
             {label}

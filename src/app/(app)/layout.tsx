@@ -8,7 +8,7 @@ export default function AppLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="relative flex min-h-full flex-1 flex-col bg-float-void">
+    <div className="relative flex min-h-full flex-1 flex-col bg-page">
       <GrainOverlay />
       <TopBar />
       <main className="flex-1 px-5 pb-24 pt-6">{children}</main>

@@ -53,15 +53,15 @@ export function BalanceDisplay({ onOpen }: BalanceDisplayProps) {
     <button
       type="button"
       onClick={onOpen}
-      className="w-full rounded-2xl border border-float-border bg-float-surface p-6 text-left transition-colors hover:bg-float-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+      className="w-full rounded-2xl border-2 border-void bg-surface p-6 text-left shadow-[6px_6px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-dim)]"
     >
-      <span className="font-body text-xs uppercase tracking-wide text-float-muted">
+      <span className="font-mono text-xs uppercase tracking-wide text-muted">
         Your balance
       </span>
-      <div className="mt-2 font-display text-[40px] text-float-heading">
+      <div className="mt-2 font-display text-[40px] font-bold text-text">
         <span ref={valueRef}>$0.00</span>
       </div>
-      <p className="mt-2 font-body text-xs text-float-muted">
+      <p className="mt-2 font-mono text-xs text-muted-2">
         4 chains &middot; USDC &middot; ETH &middot; MATIC
       </p>
     </button>

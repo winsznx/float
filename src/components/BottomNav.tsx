@@ -23,20 +23,30 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-around border-t border-float-border bg-float-surface px-2 pt-2"
+      className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-around border-t border-border bg-surface px-2 pt-2"
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
     >
       {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
         const isActive = pathname === href || pathname.startsWith(`${href}/`);
+        const isSend = href === "/send";
         return (
           <Link
             key={href}
             href={href}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-lg py-1.5 font-body text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)] ${
-              isActive ? "text-float-signal" : "text-float-muted"
+            className={`flex flex-1 flex-col items-center gap-1 rounded-lg py-1.5 font-body text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-dim)] ${
+              isActive ? (isSend ? "text-coral" : "text-signal") : "text-muted"
             }`}
           >
-            <Icon size={22} color={isActive ? "var(--color-float-signal)" : "currentColor"} />
+            <Icon
+              size={22}
+              color={
+                isActive
+                  ? isSend
+                    ? "var(--color-coral)"
+                    : "var(--color-signal)"
+                  : "currentColor"
+              }
+            />
             {label}
           </Link>
         );
@@ -44,10 +54,10 @@ export function BottomNav() {
       <button
         type="button"
         aria-label="Account"
-        className="flex flex-1 flex-col items-center gap-1 rounded-lg py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+        className="flex flex-1 flex-col items-center gap-1 rounded-lg py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-dim)]"
       >
-        <span className="h-[22px] w-[22px] rounded-full border border-float-border bg-float-surface-2" />
-        <span className="font-body text-xs text-float-muted">You</span>
+        <span className="h-[22px] w-[22px] rounded-full border border-border bg-void-3" />
+        <span className="font-body text-xs text-muted">You</span>
       </button>
     </nav>
   );

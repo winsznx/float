@@ -35,7 +35,7 @@ function formatTimestamp(value: number): string {
 
 function StepCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full max-w-sm rounded-2xl border border-float-border bg-float-surface p-8">
+    <div className="w-full max-w-sm rounded-2xl border-2 border-void bg-surface p-8 shadow-[7px_7px_0_0_var(--color-brut-line)]">
       {children}
     </div>
   );
@@ -55,7 +55,7 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="mt-8 w-full rounded-full bg-float-signal px-6 py-4 font-body text-[15px] font-semibold text-float-heading transition-colors hover:bg-float-signal/90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+      className="mt-8 w-full rounded-full border-2 border-void bg-coral px-6 py-4 font-body text-[15px] font-semibold text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] disabled:opacity-60 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[5px_5px_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
     >
       {children}
     </button>
@@ -121,18 +121,18 @@ function SendingStage({ amount }: { amount: number }) {
                 particleRefs.current[i] = el;
               }}
               aria-hidden="true"
-              className="absolute h-1.5 w-1.5 rounded-full bg-float-signal"
+              className="absolute h-1.5 w-1.5 rounded-full bg-coral"
               style={{ left: "50%", top: "50%", marginLeft: "-3px", marginTop: "-3px" }}
             />
           ))}
           <span
             ref={amountRef}
-            className="font-display text-2xl font-bold text-float-heading"
+            className="font-display text-2xl font-bold text-text"
           >
             {formatCurrency(amount)}
           </span>
         </div>
-        <p className="mt-6 font-body text-sm text-float-muted">Sending</p>
+        <p className="mt-6 font-mono text-sm text-muted">Sending</p>
       </div>
     </StepCard>
   );
@@ -165,7 +165,7 @@ function SuccessStage({
     gsap.fromTo(
       el,
       { opacity: 0, scale: 0.95 },
-      { opacity: 1, scale: 1, duration: 0.3, ease: "power2.out" }
+      { opacity: 1, scale: 1, duration: 0.4, ease: "power4.out" }
     );
   }, []);
 
@@ -174,27 +174,28 @@ function SuccessStage({
       <div ref={settleRef} className="flex flex-col items-center opacity-0">
         <span
           aria-hidden="true"
-          className="h-12 w-12 rounded-full border border-float-border bg-float-surface-2"
+          className="h-14 w-14 rounded-full border-2 border-void bg-void-3"
         />
-        <p className="mt-4 font-display text-2xl font-bold text-float-heading">
+        <p className="mt-4 font-display text-3xl font-bold text-text">
           {formatCurrency(amount)}
         </p>
-        <p className="mt-1 font-body text-sm text-float-muted">
+        <p className="mt-1 font-body text-sm text-muted">
           to {recipientLabel}
         </p>
       </div>
 
-      <div className="mt-8 flex flex-col gap-1 border-t border-float-border pt-6">
-        <p className="font-body text-[13px] text-float-body">
-          <span className="text-float-muted">Amount</span>{" "}
-          {formatCurrency(amount)}
+      <div className="mt-8 flex flex-col gap-2 border-t-2 border-border-strong pt-6">
+        <p className="flex justify-between font-body text-[13px] text-text">
+          <span className="text-muted">Amount</span>
+          <span className="font-mono">{formatCurrency(amount)}</span>
         </p>
-        <p className="font-body text-[13px] text-float-body">
-          <span className="text-float-muted">To</span> {recipientLabel}
+        <p className="flex justify-between font-body text-[13px] text-text">
+          <span className="text-muted">To</span>
+          <span className="font-mono">{recipientLabel}</span>
         </p>
-        <p className="font-body text-[13px] text-float-body">
-          <span className="text-float-muted">Time</span>{" "}
-          {formatTimestamp(receipt.timestamp)}
+        <p className="flex justify-between font-body text-[13px] text-text">
+          <span className="text-muted">Time</span>
+          <span className="font-mono">{formatTimestamp(receipt.timestamp)}</span>
         </p>
       </div>
 
@@ -203,13 +204,13 @@ function SuccessStage({
         <button
           type="button"
           onClick={() => {}}
-          className="w-full rounded-full border border-float-border bg-float-surface px-6 py-4 font-body text-[15px] font-medium text-float-body transition-colors hover:bg-float-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+          className="w-full rounded-full border-2 border-void bg-surface px-6 py-4 font-body text-[15px] font-medium text-text shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
         >
           Share
         </button>
         <Link
           href="/home"
-          className="w-full rounded-full bg-float-signal px-6 py-4 text-center font-body text-[15px] font-semibold text-float-heading transition-colors hover:bg-float-signal/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+          className="w-full rounded-full border-2 border-void bg-coral px-6 py-4 text-center font-body text-[15px] font-semibold text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
         >
           Done
         </Link>
@@ -286,10 +287,10 @@ export default function SendPage() {
             onChange={(event) => setNote(event.target.value)}
             placeholder="Add a note (optional)"
             rows={3}
-            className="w-full resize-none rounded-md border border-float-border bg-float-surface-2 px-4 py-3 font-body text-[15px] text-float-body placeholder:text-float-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--float-signal-glow)]"
+            className="w-full resize-none rounded-md border-2 border-void bg-void-3 px-4 py-3 font-body text-[15px] text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
           />
           {note.length >= NOTE_LIMIT - 20 && (
-            <p className="mt-2 text-right font-body text-[12px] text-float-muted">
+            <p className="mt-2 text-right font-mono text-[12px] text-muted-2">
               {note.length}/{NOTE_LIMIT}
             </p>
           )}
