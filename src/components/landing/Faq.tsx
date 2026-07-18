@@ -3,35 +3,36 @@
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Swipe } from "@/components/landing/Swipe";
 
 const FAQS = [
   {
-    question: "How does FLOAT know where to send my money?",
+    question: "Do I need to know which network I am on?",
     answer:
-      "It doesn't ask you to pick. Type a handle and FLOAT resolves it to a Universal Account, then sources funds from wherever your balance actually sits and delivers to wherever the recipient keeps theirs. You never choose a network or move anything yourself.",
-    bgClass: "bg-coral",
-    rotateClass: "rotate-[-1deg]",
+      "FLOAT resolves the network automatically, every time you send, split, leash, or pledge.",
+    bgClass: "bg-[#F2A683]",
+    rotateClass: "rotate-[-1.6deg]",
   },
   {
-    question: "What's the difference between Send and Pledge?",
+    question: "What is the difference between Send and Pledge?",
     answer:
-      "Send moves your money to someone else, right now. Pledge locks your own money against a goal you set for yourself. Hit the goal and it unlocks back to you. Miss it and it moves automatically to a destination you nominated in advance.",
-    bgClass: "bg-mint",
-    rotateClass: "rotate-[1.2deg]",
+      "Send moves money to someone right now. Pledge locks your own money against a goal, with real stakes if you miss it.",
+    bgClass: "bg-[#B8E6A8]",
+    rotateClass: "rotate-[1.6deg]",
   },
   {
-    question: "Is Leash safe? What can the other person actually do?",
+    question: "Is Leash actually safe to hand out?",
     answer:
-      "Only what you allow. A Leash grants a scoped key capped at an amount you set, restricted to the tokens and contracts you choose, with an expiry date. They can pull within those limits and nothing else. You can revoke at any time, and unused balance returns to you immediately.",
-    bgClass: "bg-lav",
-    rotateClass: "rotate-[-1.3deg]",
+      "You set the limit and the rules before anyone gets access. They can spend within them, and only within them.",
+    bgClass: "bg-[#C9BFEA]",
+    rotateClass: "rotate-[1.3deg]",
   },
   {
     question: "What happens if I miss a Pledge deadline?",
     answer:
-      "Your nominated witness confirms or denies at the deadline. If it's marked as missed, the locked funds move automatically to the failure destination you set when you made the Pledge. There's no grace period and no override. That's what makes it work.",
-    bgClass: "bg-coral",
-    rotateClass: "rotate-[1deg]",
+      "Your stake moves to the failure destination you picked when you set it up. Real consequences, not just a reminder.",
+    bgClass: "bg-[#F2A683]",
+    rotateClass: "rotate-[-1.3deg]",
   },
 ];
 
@@ -60,22 +61,19 @@ export function Faq() {
     }
 
     const ctx = gsap.context(() => {
-      inners.forEach((inner) => {
-        gsap.fromTo(
-          inner,
-          { opacity: 0, y: 24 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.5,
-            ease: "power2.out",
-            scrollTrigger: {
-              trigger: inner,
-              start: "top 88%",
-              once: true,
-            },
-          }
-        );
+      gsap.set(inners, { opacity: 0, y: 18 });
+      inners.forEach((inner, i) => {
+        gsap.to(inner, {
+          opacity: 1,
+          y: 0,
+          duration: 0.6,
+          ease: "power2.out",
+          delay: i * 0.06,
+          scrollTrigger: {
+            trigger: inner,
+            start: "top 88%",
+          },
+        });
       });
     }, list);
 
@@ -86,47 +84,69 @@ export function Faq() {
   }, []);
 
   return (
-    <section id="faq" className="px-6 py-24">
-      <div className="mx-auto w-full max-w-2xl">
-        <h2 className="text-center font-display text-[32px] font-bold tracking-tight text-text sm:text-[40px]">
-          Questions people actually ask
-        </h2>
+    <section className="mx-auto max-w-[900px] px-12 pb-[90px] pt-[70px] text-center">
+      <div className="font-mono text-[12px] uppercase tracking-[0.18em] text-muted">
+        The honest answers
+      </div>
+      <h2 className="mb-9 mt-4 font-display text-[clamp(30px,4.2vw,48px)] font-bold text-text">
+        Questions? <Swipe>Good.</Swipe>
+      </h2>
 
-        <div ref={listRef} className="mt-12 flex flex-col gap-5">
-          {FAQS.map((faq, index) => {
-            const isOpen = openIndex === index;
-            return (
+      <div ref={listRef} className="flex flex-col gap-4 text-left">
+        {FAQS.map((faq, index) => {
+          const isOpen = openIndex === index;
+          return (
+            <div
+              key={faq.question}
+              className={`rounded-[26px] border-2 border-void ${faq.bgClass} ${faq.rotateClass} px-7 py-[22px] text-void transition-[transform,box-shadow] duration-150 hover:translate-x-[3px] hover:translate-y-[3px] hover:rotate-0 hover:shadow-[0_0_0_0_var(--color-brut-line)]`}
+              style={{ boxShadow: "5px 5px 0 0 var(--color-brut-line)" }}
+            >
               <div
-                key={faq.question}
-                className={`rounded-2xl border-2 border-void ${faq.bgClass} ${faq.rotateClass} p-6 shadow-[5px_5px_0_0_var(--color-brut-line)]`}
+                ref={(el) => {
+                  innerRefs.current[index] = el;
+                }}
               >
-                <div
-                  ref={(el) => {
-                    innerRefs.current[index] = el;
-                  }}
+                <button
+                  type="button"
+                  onClick={() => setOpenIndex(isOpen ? null : index)}
+                  aria-expanded={isOpen}
+                  className="flex w-full items-center justify-between gap-4 text-left"
                 >
-                  <button
-                    type="button"
-                    onClick={() => setOpenIndex(isOpen ? null : index)}
-                    aria-expanded={isOpen}
-                    className="flex w-full items-center justify-between gap-4 text-left font-body text-[16px] font-semibold text-void"
-                  >
+                  <span className="font-display text-[18px] font-bold">
                     {faq.question}
-                    <span aria-hidden="true" className="shrink-0 text-xl leading-none">
-                      {isOpen ? "−" : "+"}
-                    </span>
-                  </button>
-                  {isOpen && (
-                    <p className="mt-4 font-body text-[14px] leading-relaxed text-void/75">
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-void text-[19px] text-surface transition-transform duration-200 ${
+                      isOpen ? "rotate-45" : "rotate-0"
+                    }`}
+                  >
+                    +
+                  </span>
+                </button>
+                <div
+                  className="grid transition-[grid-template-rows] duration-300 ease-out"
+                  style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
+                >
+                  <div className="overflow-hidden">
+                    <p className="pt-3.5 text-[15px] leading-[1.5] text-void/[0.82]">
                       {faq.answer}
                     </p>
-                  )}
+                  </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
+
+      <p className="mt-10 font-mono text-[13px] text-muted-2">
+        Still curious? Find us on X{" "}
+        <a href="#" className="text-signal no-underline hover:underline">
+          @float
+        </a>
+        .
+      </p>
     </section>
   );
 }

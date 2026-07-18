@@ -1,9 +1,9 @@
 import { LandingNav } from "@/components/landing/LandingNav";
 import { Hero } from "@/components/landing/Hero";
-import { ProblemResolution } from "@/components/landing/ProblemResolution";
-import { Thesis } from "@/components/landing/Thesis";
 import { ModeCards } from "@/components/landing/ModeCards";
+import { ProblemResolution } from "@/components/landing/ProblemResolution";
 import { TrustStrip } from "@/components/landing/TrustStrip";
+import { Thesis } from "@/components/landing/Thesis";
 import { Faq } from "@/components/landing/Faq";
 import { Signoff } from "@/components/landing/Signoff";
 
@@ -12,10 +12,10 @@ export default function Home() {
     <main className="flex-1">
       <LandingNav />
       <Hero />
-      <ProblemResolution />
-      <Thesis />
       <ModeCards />
+      <ProblemResolution />
       <TrustStrip />
+      <Thesis />
       <Faq />
       <Signoff />
     </main>

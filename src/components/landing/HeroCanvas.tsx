@@ -2,8 +2,9 @@
 
 import { useEffect, useRef } from "react";
 
-const PARTICLE_COUNT = 34;
-const LINK_DISTANCE = 130;
+const PARTICLE_COUNT = 150;
+const LINK_DISTANCE = 150;
+const MAX_CONNECTIONS = 3;
 
 type Particle = {
   x: number;
@@ -79,7 +80,9 @@ export function HeroCanvas() {
       });
 
       for (let i = 0; i < particles.length; i++) {
+        let connections = 0;
         for (let j = i + 1; j < particles.length; j++) {
+          if (connections >= MAX_CONNECTIONS) break;
           const a = particles[i];
           const b = particles[j];
           const dx = a.x - b.x;
@@ -89,9 +92,10 @@ export function HeroCanvas() {
             ctx!.beginPath();
             ctx!.moveTo(a.x, a.y);
             ctx!.lineTo(b.x, b.y);
-            ctx!.strokeStyle = `rgba(124, 108, 245, ${0.14 * (1 - dist / LINK_DISTANCE)})`;
+            ctx!.strokeStyle = `rgba(124, 108, 245, ${0.16 * (1 - dist / LINK_DISTANCE)})`;
             ctx!.lineWidth = 1;
             ctx!.stroke();
+            connections++;
           }
         }
       }

@@ -10,83 +10,69 @@ type PanelId = "send" | "split" | "leash" | "pledge";
 const PANELS: Array<{
   id: PanelId;
   label: string;
-  accent: string;
-  swatchClass: string;
+  tabActiveClass: string;
 }> = [
-  { id: "send", label: "Send", accent: "var(--color-coral)", swatchClass: "bg-coral" },
-  { id: "split", label: "Split", accent: "var(--color-mint)", swatchClass: "bg-mint" },
-  { id: "leash", label: "Leash", accent: "var(--color-lav)", swatchClass: "bg-lav" },
-  { id: "pledge", label: "Pledge", accent: "var(--color-signal)", swatchClass: "bg-signal-faint" },
+  { id: "send", label: "Send", tabActiveClass: "bg-coral" },
+  { id: "split", label: "Split", tabActiveClass: "bg-mint" },
+  { id: "leash", label: "Leash", tabActiveClass: "bg-lav" },
+  { id: "pledge", label: "Pledge", tabActiveClass: "bg-signal" },
 ];
 
 function SendPanel() {
   return (
-    <div className="flex h-full flex-col justify-between">
-      <div>
-        <p className="font-mono text-[11px] uppercase tracking-wide text-muted">To</p>
-        <p className="mt-1 font-body text-[15px] font-medium text-text">tim.eth</p>
-        <p className="mt-6 font-display text-4xl font-bold text-text">$50.00</p>
-      </div>
-      <div className="rounded-full border-2 border-void bg-coral px-6 py-3 text-center font-body text-[14px] font-semibold text-void shadow-[4px_4px_0_0_var(--color-brut-line)]">
-        Send
-      </div>
+    <div>
+      <span className="mb-3.5 block font-mono text-[12px] uppercase tracking-[0.1em] text-coral">
+        Send to
+      </span>
+      <div className="font-display text-[28px] font-bold text-text">@sele.eth</div>
+      <p className="mt-2.5 font-body text-[14px] text-muted">just their name</p>
     </div>
   );
 }
 
 function SplitPanel() {
   return (
-    <div className="flex h-full flex-col justify-between">
-      <div>
-        <p className="font-mono text-[11px] uppercase tracking-wide text-muted">Dinner</p>
-        <p className="mt-1 font-display text-3xl font-bold text-text">$84.00</p>
-        <div className="mt-5 flex -space-x-2">
-          {["A", "B", "C", "D"].map((letter) => (
-            <span
-              key={letter}
-              className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-void bg-void-3 font-body text-[12px] font-semibold text-text"
-            >
-              {letter}
-            </span>
-          ))}
-        </div>
+    <div>
+      <span className="mb-3.5 block font-mono text-[12px] uppercase tracking-[0.1em] text-mint">
+        Split with
+      </span>
+      <div className="flex gap-2">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-8 w-8 rounded-full border-[0.5px]"
+            style={{
+              background: "var(--color-signal-faint)",
+              borderColor: "var(--color-signal-dim)",
+            }}
+          />
+        ))}
       </div>
-      <div className="rounded-full border-2 border-void bg-mint px-6 py-3 text-center font-body text-[14px] font-semibold text-void shadow-[4px_4px_0_0_var(--color-brut-line)]">
-        Your share: $21.00
-      </div>
+      <p className="mt-2.5 font-body text-[14px] text-muted">$42 each, from what they have</p>
     </div>
   );
 }
 
 function LeashPanel() {
   return (
-    <div className="flex h-full flex-col justify-between">
-      <div>
-        <p className="font-mono text-[11px] uppercase tracking-wide text-muted">Leash to</p>
-        <p className="mt-1 font-body text-[15px] font-medium text-text">@contractor</p>
-        <p className="mt-6 font-display text-3xl font-bold text-text">$500 cap</p>
-      </div>
-      <div>
-        <div className="h-2.5 w-full overflow-hidden rounded-full border-2 border-void bg-void-3">
-          <div className="h-full w-[38%] bg-lav" />
-        </div>
-        <p className="mt-2 font-mono text-[11px] text-muted">$190 used of $500</p>
-      </div>
+    <div>
+      <span className="mb-3.5 block font-mono text-[12px] uppercase tracking-[0.1em] text-void">
+        Leash balance
+      </span>
+      <div className="font-display text-[28px] font-bold text-text">$1,240.00</div>
+      <p className="mt-2.5 font-body text-[14px] text-muted">$50 a day, their key</p>
     </div>
   );
 }
 
 function PledgePanel() {
   return (
-    <div className="flex h-full flex-col justify-between">
-      <div>
-        <p className="font-mono text-[11px] uppercase tracking-wide text-muted">Goal</p>
-        <p className="mt-1 font-body text-[15px] font-medium text-text">Launch by Friday</p>
-        <p className="mt-6 font-display text-3xl font-bold text-text">$200 locked</p>
-      </div>
-      <div className="rounded-full border-2 border-void bg-signal-faint px-6 py-3 text-center font-body text-[14px] font-semibold text-text shadow-[4px_4px_0_0_var(--color-brut-line)]">
-        Witness: @co-founder
-      </div>
+    <div>
+      <span className="mb-3.5 block font-mono text-[12px] uppercase tracking-[0.1em] text-signal">
+        Pledge
+      </span>
+      <div className="font-display text-[28px] font-bold text-text">$677.00 at stake</div>
+      <p className="mt-2.5 font-body text-[14px] text-muted">locked until Jul 31</p>
     </div>
   );
 }
@@ -127,7 +113,7 @@ export function HeroDemo() {
 
     gsap.fromTo(
       el,
-      { opacity: 0, y: 12 },
+      { opacity: 0, y: 8 },
       { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }
     );
   }, [activeIndex]);
@@ -144,32 +130,42 @@ export function HeroDemo() {
   const Panel = PANEL_CONTENT[active.id];
 
   return (
-    <div className="flex w-full max-w-sm flex-col items-center">
+    <div className="flex w-full max-w-[420px] flex-col items-center">
       <div
-        className="h-64 w-full rounded-2xl border-2 border-void bg-surface p-6 shadow-[7px_7px_0_0_var(--color-brut-line)]"
-        style={{ borderColor: "var(--color-void)" }}
+        className="relative h-[170px] w-full overflow-hidden rounded-[22px] border-2 border-void bg-lav p-[34px]"
+        style={{ boxShadow: "7px 7px 0 0 var(--color-brut-line)" }}
       >
         <div ref={panelRef} className="h-full">
           <Panel />
         </div>
       </div>
 
-      <div className="mt-5 flex gap-2">
-        {PANELS.map((panel, index) => (
-          <button
-            key={panel.id}
-            type="button"
-            onClick={() => selectPanel(index)}
-            aria-label={`Show ${panel.label} preview`}
-            className={`rounded-full border-2 border-void px-4 py-1.5 font-body text-[13px] font-medium transition-all duration-150 ${
-              index === activeIndex
-                ? `${panel.swatchClass} text-void shadow-[3px_3px_0_0_var(--color-brut-line)]`
-                : "bg-surface text-muted hover:text-text"
-            }`}
-          >
-            {panel.label}
-          </button>
-        ))}
+      <div className="mt-[18px] flex justify-center gap-2">
+        {PANELS.map((panel, index) => {
+          const isActive = index === activeIndex;
+          return (
+            <button
+              key={panel.id}
+              type="button"
+              onClick={() => selectPanel(index)}
+              aria-label={`Show ${panel.label} preview`}
+              className={`rounded-full font-body text-[13px] transition-all duration-150 ${
+                isActive
+                  ? `border-2 border-void text-void ${panel.tabActiveClass}`
+                  : "border-[1.5px] text-muted hover:text-text"
+              }`}
+              style={{
+                padding: "8px 18px",
+                borderColor: isActive ? undefined : "var(--color-brut-line)",
+                boxShadow: isActive
+                  ? "3px 3px 0 0 var(--color-brut-line)"
+                  : "3px 3px 0 0 var(--color-signal-dim)",
+              }}
+            >
+              {panel.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

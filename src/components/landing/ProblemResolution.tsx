@@ -1,69 +1,107 @@
-const PAIRS = [
-  {
-    problem:
-      "Money sitting in different places depending on what you were doing when you got it. You have to remember where before you can spend it.",
-    resolution:
-      "FLOAT treats it as one balance. Type a name, and it sources from wherever it already sits.",
-    accentClass: "bg-coral",
-  },
-  {
-    problem:
-      "A 42-character string. One typo and it is gone for good. You copy it twice and still do not trust it.",
-    resolution:
-      "Type a name instead. FLOAT resolves it and shows you exactly who you are paying before anything moves.",
-    accentClass: "bg-mint",
-  },
-  {
-    problem:
-      "Four people, four different balances, one dinner bill. Someone always ends up chasing the other three afterward.",
-    resolution:
-      "Split the total once. Everyone settles in one tap from whatever they actually hold.",
-    accentClass: "bg-lav",
-  },
+"use client";
+
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Swipe } from "@/components/landing/Swipe";
+
+const PROBLEMS = [
+  "Copy the wrong address, lose the money.",
+  "A different token for every network, just to cover the cost of moving your own money.",
+  "Splitting a bill turns into a spreadsheet nobody opens again.",
 ];
 
 export function ProblemResolution() {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const heading = headingRef.current;
+    const list = listRef.current;
+    const panel = panelRef.current;
+    if (!heading || !list || !panel) return;
+
+    gsap.registerPlugin(ScrollTrigger);
+
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    const rows = Array.from(list.children);
+
+    if (prefersReducedMotion) {
+      gsap.set([heading, ...rows, panel], { opacity: 1, y: 0 });
+      return;
+    }
+
+    const ctx = gsap.context(() => {
+      gsap.set(heading, { opacity: 0, y: 20 });
+      gsap.to(heading, {
+        opacity: 1,
+        y: 0,
+        duration: 0.8,
+        scrollTrigger: { trigger: heading, start: "top 85%" },
+      });
+
+      gsap.set(rows, { opacity: 0, y: 16 });
+      rows.forEach((row, i) => {
+        gsap.to(row, {
+          opacity: 1,
+          y: 0,
+          duration: 0.6,
+          delay: i * 0.1,
+          scrollTrigger: { trigger: row, start: "top 90%" },
+        });
+      });
+
+      gsap.set(panel, { opacity: 0, y: 20 });
+      gsap.to(panel, {
+        opacity: 1,
+        y: 0,
+        duration: 0.8,
+        scrollTrigger: { trigger: panel, start: "top 85%" },
+      });
+    });
+
+    const refreshOnFonts = () => ScrollTrigger.refresh();
+    document.fonts?.ready?.then(refreshOnFonts);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <section className="px-6 py-24">
-      <div className="mx-auto w-full max-w-3xl">
-        <h2 className="text-center font-display text-[32px] font-bold tracking-tight text-text sm:text-[40px]">
-          The problem, actually
+    <section className="mx-auto grid max-w-[1180px] grid-cols-1 items-start gap-12 px-12 pb-[90px] pt-[60px] min-[900px]:grid-cols-2 min-[900px]:gap-20">
+      <div>
+        <h2
+          ref={headingRef}
+          className="font-display text-[clamp(28px,3.6vw,40px)] font-bold leading-[1.2] text-text"
+        >
+          Money still moves like it&apos;s <Swipe>2015.</Swipe>
         </h2>
 
-        <div className="mt-14 flex flex-col gap-8">
-          {PAIRS.map((pair) => (
-            <div
-              key={pair.problem}
-              className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center"
-            >
-              <div className="rounded-2xl border-2 border-void bg-void-3 p-6 shadow-[4px_4px_0_0_var(--color-brut-line)]">
-                <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-2">
-                  Today
-                </p>
-                <p className="mt-2 font-body text-[14px] text-text">
-                  {pair.problem}
-                </p>
-              </div>
-
-              <span
-                aria-hidden="true"
-                className="hidden font-display text-2xl font-bold text-muted-2 sm:block"
-              >
-                &rarr;
-              </span>
-
-              <div
-                className={`rounded-2xl border-2 border-void ${pair.accentClass} p-6 shadow-[4px_4px_0_0_var(--color-brut-line)]`}
-              >
-                <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-void/60">
-                  With FLOAT
-                </p>
-                <p className="mt-2 font-body text-[14px] font-medium text-void">
-                  {pair.resolution}
-                </p>
-              </div>
+        <div ref={listRef} className="mt-10 flex flex-col gap-[26px]">
+          {PROBLEMS.map((problem) => (
+            <div key={problem} className="flex items-start gap-4">
+              <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-signal" />
+              <p className="text-[16px] leading-[1.5] text-muted">{problem}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div
+        ref={panelRef}
+        className="rounded-[20px] border-2 border-void bg-mint p-10"
+        style={{ boxShadow: "6px 6px 0 0 var(--color-brut-line)" }}
+      >
+        <p className="text-[18px] leading-[1.6] text-void">
+          FLOAT resolves all three into <Swipe>one motion</Swipe>. Type a
+          name, pick an amount, done. What&apos;s underneath is not your
+          problem anymore.
+        </p>
+        <div className="mt-7 font-mono text-[12px] uppercase tracking-[0.08em] text-muted-2">
+          Network abstracted by default
         </div>
       </div>
     </section>
