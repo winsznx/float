@@ -1,0 +1,37 @@
+{
+  "proof": "USDC transfer via Universal Account, owner EOA upgraded in place (EIP-7702)",
+  "ownerEOA": "0x88B59C52C90a257111C3E6Bb32F1983410E63A84",
+  "universalAccountAddress": "0x88B59C52C90a257111C3E6Bb32F1983410E63A84",
+  "addressUnchanged": true,
+  "receiver": "0x000000000000000000000000000000000000dEaD",
+  "amountUSD": "1",
+  "chainId": 42161,
+  "token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+  "rootHash": "0xc471919f8c9059b1514a236c522ab0d20df1918a206b69011eba9ff4602706aa",
+  "transactionId": "0x065708bf857a46",
+  "eip7702": {
+    "delegateContract": "0x13E00E089F81aD9F36B655C9E9A07C6BF1489A5A",
+    "authChainId": 0,
+    "nonce": 0,
+    "delegatedBefore": false,
+    "delegatedAfter": true,
+    "delegationAddress": "0x13E00E089F81aD9F36B655C9E9A07C6BF1489A5A",
+    "onchainCodeVerification": {
+      "method": "eth_getCode on Arbitrum One",
+      "result": "0xef010013e00e089f81ad9f36b655c9e9a07c6bf1489a5a",
+      "interpretation": "EIP-7702 delegation designator: 0xef0100 prefix + delegate address"
+    }
+  },
+  "balanceBefore": 9.99824,
+  "balanceAfter": 8.96847627032,
+  "settled": true,
+  "explorer": "https://universalx.app/activity/details?id=0x065708bf857a46",
+  "settlementTxHash": "0xba733747cd8b4239aaf505e6993115e6382575473ac32f3bfa8e4b36068ba638",
+  "settlementBlock": 485815478,
+  "settlementTxType": "0x4 (EIP-7702 SetCode transaction)",
+  "arbiscan": "https://arbiscan.io/tx/0xba733747cd8b4239aaf505e6993115e6382575473ac32f3bfa8e4b36068ba638",
+  "gasSponsored": {
+    "relayer": "0x880e7a637300236f028a289b6e942a829ffefeaf",
+    "note": "tx submitted by Particle relayer, not the owner EOA"
+  }
+}
