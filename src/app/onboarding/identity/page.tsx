@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkHandleAvailability } from "@/lib/identity";
 
-type AvailabilityStatus = "idle" | "checking" | "available" | "taken";
+type AvailabilityStatus = "idle" | "checking" | "available" | "taken" | "failed";
 
 export default function OnboardingIdentityPage() {
   const router = useRouter();
@@ -13,6 +13,7 @@ export default function OnboardingIdentityPage() {
     null
   );
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [failedHandle, setFailedHandle] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -26,10 +27,17 @@ export default function OnboardingIdentityPage() {
     let cancelled = false;
 
     const timeout = setTimeout(() => {
-      checkHandleAvailability(handle).then((available) => {
-        if (cancelled) return;
-        setResult({ handle, available });
-      });
+      checkHandleAvailability(handle)
+        .then((available) => {
+          if (cancelled) return;
+          setResult({ handle, available });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // Without this the field sits on "Checking" forever and Continue
+          // never enables.
+          setFailedHandle(handle);
+        });
     }, 400);
 
     return () => {
@@ -40,11 +48,13 @@ export default function OnboardingIdentityPage() {
 
   const status: AvailabilityStatus = !handle
     ? "idle"
-    : result?.handle === handle
-      ? result.available
-        ? "available"
-        : "taken"
-      : "checking";
+    : failedHandle === handle
+      ? "failed"
+      : result?.handle === handle
+        ? result.available
+          ? "available"
+          : "taken"
+        : "checking";
 
   function handlePhotoTap() {
     fileInputRef.current?.click();
@@ -122,6 +132,11 @@ export default function OnboardingIdentityPage() {
             {status === "taken" && (
               <p className="font-body text-[13px] text-coral">
                 {handle} is taken. Try another.
+              </p>
+            )}
+            {status === "failed" && (
+              <p role="alert" className="font-body text-[13px] text-coral">
+                Couldn&apos;t check that handle. Try again.
               </p>
             )}
           </div>

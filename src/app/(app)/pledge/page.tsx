@@ -8,7 +8,9 @@ import { ModePill } from "@/components/ModePill";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { PledgeCard } from "@/components/PledgeCard";
+import { ErrorNote } from "@/components/ErrorNote";
 import { createPledge, FAILURE_DESTINATIONS } from "@/lib/pledge";
+import { getErrorMessage } from "@/lib/errors";
 import type { IdentityResolution } from "@/lib/identity";
 import type { Pledge } from "@/lib/pledge";
 
@@ -143,6 +145,7 @@ export default function PledgePage() {
   const [isPublic, setIsPublic] = useState(false);
   const [creating, setCreating] = useState(false);
   const [pledge, setPledge] = useState<Pledge | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const stake = Number(stakeValue) || 0;
 
@@ -179,19 +182,28 @@ export default function PledgePage() {
     } else {
       setStep("locking");
     }
+    setError(null);
 
-    const result = await createPledge({
-      goal,
-      stake,
-      witness: witnessResolution,
-      failureDestinationLabel: failureLabel,
-      deadline,
-      isPublic,
-    });
+    try {
+      const result = await createPledge({
+        goal,
+        stake,
+        witness: witnessResolution,
+        failureDestinationLabel: failureLabel,
+        deadline,
+        isPublic,
+      });
 
-    setPledge(result);
-    setCreating(false);
-    setStep("locked");
+      setPledge(result);
+      setStep("locked");
+    } catch (caught) {
+      // Back to review with the goal, stake, witness, and destination intact —
+      // nothing is locked until the contract call succeeds.
+      setError(getErrorMessage(caught));
+      setStep("review");
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
@@ -400,6 +412,7 @@ export default function PledgePage() {
             deadline={deadline}
             status="review"
           />
+          <ErrorNote message={error} />
           <button
             type="button"
             onClick={handleConfirmLock}

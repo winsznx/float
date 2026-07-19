@@ -7,7 +7,9 @@ import { ModePill } from "@/components/ModePill";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { ConfirmationCard } from "@/components/ConfirmationCard";
+import { ErrorNote } from "@/components/ErrorNote";
 import { sendPayment } from "@/lib/send";
+import { getErrorMessage } from "@/lib/errors";
 import type { IdentityResolution } from "@/lib/identity";
 import type { SendReceipt } from "@/lib/send";
 
@@ -225,6 +227,7 @@ export default function SendPage() {
   const [amountValue, setAmountValue] = useState("");
   const [note, setNote] = useState("");
   const [receipt, setReceipt] = useState<SendReceipt | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const amount = Number(amountValue) || 0;
   const recipientLabel = resolution?.input ?? "";
@@ -238,9 +241,17 @@ export default function SendPage() {
   async function handleConfirm() {
     if (!resolution) return;
     setStep("sending");
-    const result = await sendPayment({ recipient: resolution, amount, note });
-    setReceipt(result);
-    setStep("success");
+    setError(null);
+    try {
+      const result = await sendPayment({ recipient: resolution, amount, note });
+      setReceipt(result);
+      setStep("success");
+    } catch (caught) {
+      // Returning to confirm keeps the entered amount, note, and recipient so
+      // a declined signature or failed route can be retried without re-entry.
+      setError(getErrorMessage(caught));
+      setStep("confirm");
+    }
   }
 
   return (
@@ -301,14 +312,17 @@ export default function SendPage() {
       )}
 
       {step === "confirm" && resolution && (
-        <ConfirmationCard
-          amount={amount}
-          recipientLabel={recipientLabel}
-          sourceChain={SOURCE_CHAIN}
-          destinationChain={destinationChain}
-          onConfirm={handleConfirm}
-          confirming={false}
-        />
+        <div className="flex w-full max-w-sm flex-col items-center gap-4">
+          <ErrorNote message={error} className="w-full" />
+          <ConfirmationCard
+            amount={amount}
+            recipientLabel={recipientLabel}
+            sourceChain={SOURCE_CHAIN}
+            destinationChain={destinationChain}
+            onConfirm={handleConfirm}
+            confirming={false}
+          />
+        </div>
       )}
 
       {step === "sending" && <SendingStage amount={amount} />}

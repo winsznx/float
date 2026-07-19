@@ -6,7 +6,9 @@ import { X } from "lucide-react";
 import { ModePill } from "@/components/ModePill";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
+import { ErrorNote } from "@/components/ErrorNote";
 import { generateSplitLink, getSplitStatus, settleMember } from "@/lib/split";
+import { getErrorMessage } from "@/lib/errors";
 import type { IdentityResolution } from "@/lib/identity";
 import type { MemberStatus } from "@/lib/split";
 
@@ -63,12 +65,21 @@ function MemberAvatar() {
 function DashboardStage({ splitId }: { splitId: string }) {
   const [statuses, setStatuses] = useState<MemberStatus[] | null>(null);
   const [settlingInput, setSettlingInput] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getSplitStatus(splitId).then((result) => {
-      if (!cancelled) setStatuses(result);
-    });
+    getSplitStatus(splitId)
+      .then((result) => {
+        if (!cancelled) setStatuses(result);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        // Without this the dashboard sits on its loading skeleton forever.
+        setError(getErrorMessage(caught));
+        setLoadFailed(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -76,15 +87,30 @@ function DashboardStage({ splitId }: { splitId: string }) {
 
   async function handleSettle(input: string) {
     setSettlingInput(input);
-    await settleMember(splitId, input);
-    setStatuses((prev) =>
-      prev
-        ? prev.map((status) =>
-            status.input === input ? { ...status, settled: true } : status
-          )
-        : prev
+    setError(null);
+    try {
+      await settleMember(splitId, input);
+      setStatuses((prev) =>
+        prev
+          ? prev.map((status) =>
+              status.input === input ? { ...status, settled: true } : status
+            )
+          : prev
+      );
+    } catch (caught) {
+      // Leave the member unsettled so the row stays actionable for a retry.
+      setError(getErrorMessage(caught));
+    } finally {
+      setSettlingInput(null);
+    }
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="w-full max-w-sm">
+        <ErrorNote message={error} />
+      </div>
     );
-    setSettlingInput(null);
   }
 
   if (!statuses) {
@@ -141,6 +167,8 @@ function DashboardStage({ splitId }: { splitId: string }) {
         ))}
       </div>
 
+      <ErrorNote message={error} className="mt-6" />
+
       <Link
         href="/home"
         className="mt-8 block w-full rounded-full border-2 border-void bg-mint px-6 py-4 text-center font-body text-[15px] font-semibold text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-mint)]"
@@ -163,6 +191,7 @@ export default function SplitPage() {
   const [creatingLink, setCreatingLink] = useState(false);
   const [splitLink, setSplitLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const total = Number(totalValue) || 0;
   const equalShare = members.length > 0 ? total / (members.length + 1) : 0;
@@ -205,21 +234,31 @@ export default function SplitPage() {
 
   async function handleCreateSplit() {
     setCreatingLink(true);
-    const link = await generateSplitLink();
-    setSplitLink(link);
-    setCreatingLink(false);
-    setStep("link");
+    setError(null);
+    try {
+      const link = await generateSplitLink();
+      setSplitLink(link);
+      setStep("link");
+    } catch (caught) {
+      // Stays on the members step so the roster and amounts survive a retry.
+      setError(getErrorMessage(caught));
+    } finally {
+      setCreatingLink(false);
+    }
   }
 
   async function handleCopy() {
     if (!splitLink) return;
+    setError(null);
     try {
       await navigator.clipboard.writeText(splitLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     } catch {
-      // clipboard unavailable in this environment; nothing to fall back to in this mocked phase
+      // Clipboard is unavailable over plain HTTP and in some in-app browsers.
+      // Say so rather than confirming a copy that never happened.
+      setError("Couldn't copy. Select the link and copy it manually.");
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
   }
 
   const splitId = splitLink ? splitLink.split("/").pop() ?? "" : "";
@@ -389,6 +428,8 @@ export default function SplitPage() {
             </p>
           )}
 
+          <ErrorNote message={error} className="mt-4" />
+
           <PrimaryButton disabled={creatingLink} onClick={handleCreateSplit}>
             {creatingLink ? "Creating" : "Continue"}
           </PrimaryButton>
@@ -419,6 +460,8 @@ export default function SplitPage() {
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
+
+          <ErrorNote message={error} className="mt-4" />
 
           <PrimaryButton onClick={() => setStep("dashboard")}>
             View split dashboard

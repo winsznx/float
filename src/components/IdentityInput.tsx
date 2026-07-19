@@ -8,7 +8,7 @@ type IdentityInputProps = {
   onResolvedChange: (resolution: IdentityResolution | null) => void;
 };
 
-type Status = "idle" | "resolving" | "resolved" | "new";
+type Status = "idle" | "resolving" | "resolved" | "new" | "failed";
 
 function isEmail(value: string): boolean {
   return value.includes("@");
@@ -22,6 +22,7 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
   const [value, setValue] = useState("");
   const [debounced, setDebounced] = useState("");
   const [resolution, setResolution] = useState<IdentityResolution | null>(null);
+  const [failedInput, setFailedInput] = useState<string | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebounced(value.trim()), 300);
@@ -39,11 +40,19 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
 
     let cancelled = false;
 
-    resolveIdentity(debounced).then((result) => {
-      if (cancelled) return;
-      setResolution(result);
-      onResolvedChange(result);
-    });
+    resolveIdentity(debounced)
+      .then((result) => {
+        if (cancelled) return;
+        setResolution(result);
+        onResolvedChange(result);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Without this the field spins on "Resolving" forever and the step's
+        // Next button never unlocks.
+        setFailedInput(debounced);
+        onResolvedChange(null);
+      });
 
     return () => {
       cancelled = true;
@@ -53,11 +62,13 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
 
   const status: Status = !shouldResolve
     ? "idle"
-    : !isCurrent
-      ? "resolving"
-      : resolution!.type === "email"
-        ? "new"
-        : "resolved";
+    : failedInput === debounced
+      ? "failed"
+      : !isCurrent
+        ? "resolving"
+        : resolution!.type === "email"
+          ? "new"
+          : "resolved";
 
   return (
     <div className="w-full">
@@ -110,6 +121,12 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
               New to FLOAT
             </p>
           </div>
+        )}
+
+        {status === "failed" && (
+          <p role="alert" className="font-body text-[13px] text-coral">
+            Couldn&apos;t look that up. Check the name, or try again.
+          </p>
         )}
       </div>
     </div>

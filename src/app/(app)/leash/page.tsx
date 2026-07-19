@@ -6,7 +6,9 @@ import { ModePill } from "@/components/ModePill";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { LeashCard } from "@/components/LeashCard";
+import { ErrorNote } from "@/components/ErrorNote";
 import { createLeash, getLeashUsage, revokeLeash } from "@/lib/leash";
+import { getErrorMessage } from "@/lib/errors";
 import type { IdentityResolution } from "@/lib/identity";
 import type { ContractScope, Leash } from "@/lib/leash";
 
@@ -53,6 +55,7 @@ export default function LeashPage() {
   const [leash, setLeash] = useState<Leash | null>(null);
   const [used, setUsed] = useState(0);
   const [revokeState, setRevokeState] = useState<RevokeState>("idle");
+  const [error, setError] = useState<string | null>(null);
 
   const spendLimit = Number(spendLimitValue) || 0;
 
@@ -64,24 +67,38 @@ export default function LeashPage() {
   async function handleConfirmCreate() {
     if (!resolution) return;
     setCreating(true);
-    const result = await createLeash({
-      beneficiary: resolution,
-      spendLimit,
-      contractScope,
-      contractAddress: contractScope === "advanced" && contractAddress ? contractAddress : null,
-      expiry,
-    });
-    const usage = await getLeashUsage(result.leashId, result.spendLimit);
-    setLeash(result);
-    setUsed(usage);
-    setCreating(false);
-    setStep("active");
+    setError(null);
+    try {
+      const result = await createLeash({
+        beneficiary: resolution,
+        spendLimit,
+        contractScope,
+        contractAddress: contractScope === "advanced" && contractAddress ? contractAddress : null,
+        expiry,
+      });
+      const usage = await getLeashUsage(result.leashId, result.spendLimit);
+      setLeash(result);
+      setUsed(usage);
+      setStep("active");
+    } catch (caught) {
+      // Stays on review so the configured limit, scope, and expiry survive a retry.
+      setError(getErrorMessage(caught));
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function handleRevokeConfirm() {
     if (!leash) return;
-    await revokeLeash(leash.leashId);
-    setRevokeState("revoked");
+    setError(null);
+    try {
+      await revokeLeash(leash.leashId);
+      setRevokeState("revoked");
+    } catch (caught) {
+      // Revoke is the safety valve; surface the failure and leave the dialog
+      // open so the creator can retry rather than assume access was removed.
+      setError(getErrorMessage(caught));
+    }
   }
 
   return (
@@ -204,6 +221,7 @@ export default function LeashPage() {
             used={0}
             expiry={expiry}
           />
+          <ErrorNote message={error} />
           <button
             type="button"
             onClick={handleConfirmCreate}
@@ -217,6 +235,8 @@ export default function LeashPage() {
 
       {step === "active" && leash && (
         <div className="flex w-full max-w-sm flex-col gap-4">
+          <ErrorNote message={error} />
+
           {revokeState !== "revoked" && (
             <LeashCard
               variant="active"

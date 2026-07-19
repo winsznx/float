@@ -3,24 +3,44 @@
 import { useState } from "react";
 import Link from "next/link";
 import { sendMagicLink } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/errors";
+import { ErrorNote } from "@/components/ErrorNote";
+
+// The bypass below skips the email link so the rest of onboarding stays
+// walkable while Magic is still mocked. Compiled out of production builds so
+// it can never ship as a way around auth.
+const SHOW_ONBOARDING_BYPASS = process.env.NODE_ENV !== "production";
 
 export default function OnboardingEmailPage() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "sent">("idle");
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!email || status === "submitting") return;
     setStatus("submitting");
-    await sendMagicLink(email);
-    setStatus("sent");
+    setError(null);
+    try {
+      await sendMagicLink(email);
+      setStatus("sent");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+      setStatus("idle");
+    }
   }
 
   async function handleResend() {
     if (status === "submitting") return;
     setStatus("submitting");
-    await sendMagicLink(email);
-    setStatus("sent");
+    setError(null);
+    try {
+      await sendMagicLink(email);
+      setStatus("sent");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+      setStatus("sent");
+    }
   }
 
   return (
@@ -42,13 +62,16 @@ export default function OnboardingEmailPage() {
               Resend link
             </button>
 
-            {/* TODO: remove once real Magic link handling is wired; this only exists so the rest of onboarding is reachable without a live email link. */}
-            <Link
-              href="/onboarding/identity"
-              className="mt-3 font-mono text-[12px] text-muted-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
-            >
-              Continue to identity setup
-            </Link>
+            <ErrorNote message={error} className="mt-5 w-full text-left" />
+
+            {SHOW_ONBOARDING_BYPASS && (
+              <Link
+                href="/onboarding/identity"
+                className="mt-3 font-mono text-[12px] text-muted-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
+              >
+                Continue to identity setup (dev)
+              </Link>
+            )}
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col items-center text-center">
@@ -73,6 +96,8 @@ export default function OnboardingEmailPage() {
               placeholder="you@example.com"
               className="mt-7 w-full rounded-xl border-2 border-void bg-void-3 px-[18px] py-3.5 font-body text-[15px] text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
             />
+
+            <ErrorNote message={error} className="mt-4 w-full text-left" />
 
             <button
               type="submit"

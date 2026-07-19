@@ -43,16 +43,20 @@ export function PledgeCard({
 }: PledgeCardProps) {
   const stakeColor = isAtRisk ? "text-coral" : "text-signal";
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   async function handleShare() {
     if (!shareLink) return;
+    setCopyFailed(false);
     try {
       await navigator.clipboard.writeText(shareLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     } catch {
-      // clipboard unavailable in this environment; nothing to fall back to in this mocked phase
+      // Clipboard is unavailable over plain HTTP and in some in-app browsers.
+      // Say so rather than confirming a copy that never happened.
+      setCopyFailed(true);
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
   }
 
   return (
@@ -86,13 +90,20 @@ export function PledgeCard({
       </p>
 
       {shareLink && (
-        <button
-          type="button"
-          onClick={handleShare}
-          className="mt-6 font-body text-sm font-medium text-text transition-colors hover:text-signal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
-        >
-          {copied ? "Copied" : "Share pledge"}
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="mt-6 font-body text-sm font-medium text-text transition-colors hover:text-signal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
+          >
+            {copied ? "Copied" : "Share pledge"}
+          </button>
+          {copyFailed && (
+            <p role="alert" className="mt-2 font-body text-[12px] text-coral">
+              Couldn&apos;t copy. Select the link and copy it manually.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
