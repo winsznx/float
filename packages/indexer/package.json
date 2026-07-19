@@ -2,5 +2,23 @@
   "name": "@float/indexer",
   "version": "0.1.0",
   "private": true,
-  "description": "FLOAT indexer — see AGENT_PROGRESS.md for phase"
+  "description": "FLOAT indexer \u2014 see AGENT_PROGRESS.md for phase",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
+    "dotenv": "^17.4.2",
+    "viem": "^2.55.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "typescript": "^5.9.3"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch --preserveWatchOutput & node --watch dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "verify": "node scripts/verify-indexer.mjs"
+  }
 }

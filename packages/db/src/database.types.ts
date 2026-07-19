@@ -49,6 +49,24 @@ export type Database = {
           },
         ]
       }
+      indexer_state: {
+        Row: {
+          id: string
+          last_block: number
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          last_block?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          last_block?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leash_spends: {
         Row: {
           amount: number
