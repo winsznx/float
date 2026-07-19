@@ -2,7 +2,7 @@
   "name": "@float/contracts",
   "version": "0.1.0",
   "private": true,
-  "description": "FLOAT contracts — LeashManager + PledgeVault on Arbitrum",
+  "description": "FLOAT contracts \u2014 LeashManager + PledgeVault on Arbitrum",
   "scripts": {
     "build": "hardhat compile",
     "test": "hardhat test",
