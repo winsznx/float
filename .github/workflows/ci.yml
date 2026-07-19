@@ -30,3 +30,7 @@ jobs:
       - run: npm run typecheck
 
       - run: npm run build
+
+      - run: npm run build -w @float/contracts
+
+      - run: npm run test -w @float/contracts

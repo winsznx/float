@@ -6,14 +6,16 @@ Session-continuity log. Updated at every phase gate.
 
 ## Status
 
-**Current phase:** 1 — Database → **complete, awaiting confirmation**
-**Next phase:** 2 — Smart Contracts (LeashManager, PledgeVault). Do not start without confirmation.
+**Current phase:** 2 — Smart Contracts → **built + fully tested; deployment blocked ONLY on gas funding**
+**Next phase:** 3 — SDK integration. Do not start without confirmation.
+
+**⚠ To unblock deployment:** fund `0x88B59C52C90a257111C3E6Bb32F1983410E63A84` (throwaway deployer, key in `.env.local`) with ~0.01 Arbitrum Sepolia ETH, then run `npm run deploy:sepolia -w @float/contracts`. For Arbiscan verification set `ARBISCAN_API_KEY` (one free Etherscan v2 key covers Arbitrum) — deploy script verifies automatically, or rerun `npx hardhat verify` later.
 
 | Phase | State |
 |---|---|
 | 0 · Foundation & frontend audit | ✅ complete |
 | 1 · Database (Supabase + RLS) | ✅ complete |
-| 2 · Contracts (LeashManager, PledgeVault) | ⬜ not started |
+| 2 · Contracts (LeashManager, PledgeVault) | 🟡 code+tests done; deploy awaits gas funding |
 | 3 · SDK integration (Particle 7702, Magic, WalletConnect) | ⬜ not started |
 | 4 · Backend API services | ⬜ not started |
 | 5 · Event indexer | ⬜ not started |
@@ -57,9 +59,22 @@ Session-continuity log. Updated at every phase gate.
 
 ---
 
+## Phase 2 — code + tests complete (deploy pending funding)
+
+**Contracts** (`packages/contracts`, Solidity 0.8.24, OZ 5.6.1, Hardhat 2.28.6 + toolbox 5 — every API verified against node_modules before use):
+
+- **LeashManager** — pull-based allowance, NOT escrow: funds stay with the owner; `spend` moves owner→recipient via `safeTransferFrom` inside cap/expiry/revocation checks. Custom errors; indexed events (`LeashCreated`/`LeashSpent` with remaining/`LeashRevoked` with unspent); ReentrancyGuard + effects-first; leash cap is independent of the ERC20 allowance (both tested).
+- **PledgeVault** — escrow: stake pulled into vault at creation. `failureDestination` is a per-pledge param, `!= address(0)` the only guard (locked decision; dEaD passes, tested). `witness != pledger`. Witness resolves any time while unresolved — including after deadline (product notifies witness AT deadline). `claimExpired` permissionless only after `deadline + WITNESS_GRACE_PERIOD (72h)` so the witness can't be front-run at deadline+1s; race semantics (first resolution wins) tested.
+- **Tests: 52/52** — every edge in the build prompt: over-limit/after-expiry/revoked/unauthorized/double-spend reverts, allowance-vs-cap, reentrancy via malicious token, witness-only enforcement, all three slash paths at the contract layer (success returns stake / failure fires to destination / expiry auto-slash), terminal resolution, isolation.
+- **Deploy**: `scripts/deploy.ts` records address+block per network into `deployments/<network>.json` (indexer backfill start), auto-verifies when `ARBISCAN_API_KEY` set. Networks: arbitrumSepolia (421614, public RPC fallback), arbitrumOne (42161) config ready. Deployer `0x88B59C52C90a257111C3E6Bb32F1983410E63A84` generated, ZERO balance — faucets need a human.
+- CI now compiles + tests contracts.
+
+---
+
 ## Open questions
 
-1. **Failure-destination addresses (blocks Phase 2).** `pledges.failure_destination_address` is nullable pending real addresses for gitcoin/dao/burn. PRD Open Question #6.
+1. **Failure-destination addresses — RESOLVED for contracts** (per-pledge param, zero-guard only; burn = dEaD locked). Curated gitcoin/dao addresses remain a Phase 4 picker-config item: user supplies verified addresses, or a research prompt fetches them.
+1a. **Deployer gas funding (blocks Phase 2 close-out).** Fund the address above; ~0.01 ETH is ample. `ARBISCAN_API_KEY` needed for verification.
 2. **Magic + EIP-7702 signing path (Phase 3 gate).** Unverified; highest-risk unknown.
 3. **`SUPABASE_JWT_SECRET`** — not fetchable via this CLI version; grab from dashboard → Project Settings → API → JWT Settings before Phase 3 (needed to mint Supabase sessions from Magic auth).
 4. **Four missing frontend surfaces** (`/settle/:token`, leash claim, witness resolution, public pledge page) — net-new build in Phase 6.
@@ -88,3 +103,4 @@ Session-continuity log. Updated at every phase gate.
 |---|---|---|---|---|
 | Phase 0 | ✅ | ✅ | ✅ | 4 consecutive clean builds after OG-font retry fix |
 | Phase 1 | ✅ | ✅ | ✅ | migrations in lockstep local↔remote; RLS 29/29; DB left with zero rows |
+| Phase 2 | ✅ | ✅ | ✅ | contracts 52/52; deploy pending gas funding |
