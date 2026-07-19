@@ -1,29 +1,13 @@
 import type { Metadata } from "next";
-import { Syne, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const syne = Syne({
-  variable: "--font-syne",
-  subsets: ["latin"],
-  weight: ["700", "800"],
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  weight: ["400"],
-});
-
+// TODO: set metadataBase once Tim decides the production URL (Vercel domain
+// or custom domain). Until then, og:image/twitter:image resolve against
+// localhost in dev and the deploy preview origin in prod builds.
 export const metadata: Metadata = {
-  title: "FLOAT — Your money. Any chain. Just send.",
+  title: "FLOAT. Your money. Any chain. Just send.",
   description:
-    "A chain-abstracted social money layer. Send, split, delegate, and commit — with zero chain awareness.",
+    "A chain-abstracted social money layer. Send, split, delegate, and commit, with zero chain awareness.",
 };
 
 export default function RootLayout({
@@ -32,10 +16,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${syne.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className="h-full antialiased">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

@@ -1,32 +1,38 @@
 @import "tailwindcss";
 
 /*
-  FLOAT design tokens — see float-prd.md § DESIGN LANGUAGE.
-  Tailwind v4 CSS-first config. Every token below is exposed as a utility
-  (e.g. --color-float-signal → bg-float-signal / text-float-signal).
-  No pure white (#FFF) or pure black (#000) anywhere. Every surface carries
-  a faint violet undertone.
+  FLOAT design tokens, locked palette. Tailwind v4 CSS-first config. Every
+  token below is exposed as a utility (e.g. --color-signal → bg-signal /
+  text-signal) and as a plain CSS variable (var(--color-signal)) for use in
+  arbitrary values like the brutalist offset shadows.
+  No pure white (#FFF) or pure black (#000) anywhere.
 */
 
 @theme {
-  --color-float-void: #0a0a0f;
-  --color-float-surface: #111118;
-  --color-float-surface-2: #1c1c26;
-  --color-float-border: #2a2a38;
-  --color-float-muted: #4a4a62;
-  --color-float-body: #c8c8dc;
-  --color-float-heading: #f0f0ff;
+  --color-page: #f3effa;
+  --color-surface: #fdfbfe;
+  --color-void: #1c1726;
+  --color-void-3: #efe9f7;
 
-  --color-float-signal: #7b6ef6;
-  --color-float-signal-dim: #3d3680;
+  --color-signal: #7c6cf5;
+  --color-signal-dim: rgba(124, 108, 245, 0.35);
+  --color-signal-faint: rgba(124, 108, 245, 0.12);
 
-  --color-float-positive: #3dd68c;
-  --color-float-warning: #f5a623;
-  --color-float-danger: #f55c5c;
+  --color-text: #1c1726;
+  --color-muted: #6b6478;
+  --color-muted-2: #948da3;
 
-  --font-display: var(--font-syne), sans-serif;
-  --font-body: var(--font-inter), sans-serif;
-  --font-mono: var(--font-jetbrains-mono), monospace;
+  --color-border: rgba(28, 23, 38, 0.1);
+  --color-border-strong: rgba(28, 23, 38, 0.2);
+  --color-brut-line: rgba(28, 23, 38, 0.88);
+
+  --color-coral: #f2a683;
+  --color-mint: #b8e6a8;
+  --color-lav: #c9bfea;
+
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -35,19 +41,15 @@
   --radius-2xl: 28px;
 }
 
-:root {
-  --float-signal-glow: rgba(123, 110, 246, 0.15);
-}
-
 body {
-  background: var(--color-float-void);
-  color: var(--color-float-body);
+  background: var(--color-page);
+  color: var(--color-text);
   font-family: var(--font-body);
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: var(--color-float-signal-dim);
-  color: var(--color-float-heading);
+  background: var(--color-signal-faint);
+  color: var(--color-text);
 }
