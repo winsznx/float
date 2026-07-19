@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkHandleAvailability } from "@/lib/identity";
+import { api } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
+import { ErrorNote } from "@/components/ErrorNote";
 
 type AvailabilityStatus = "idle" | "checking" | "available" | "taken" | "failed";
 
@@ -14,6 +17,8 @@ export default function OnboardingIdentityPage() {
   );
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [failedHandle, setFailedHandle] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -55,6 +60,23 @@ export default function OnboardingIdentityPage() {
           ? "available"
           : "taken"
         : "checking";
+
+  /**
+   * Persists the handle before moving on. Checking availability alone left the
+   * user with no handle at all — they'd pick one, see "available", continue,
+   * and their profile would still be blank.
+   */
+  async function saveAndContinue() {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.auth.setHandle.mutate({ handle });
+      router.push("/onboarding/discovery");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+      setSaving(false);
+    }
+  }
 
   function handlePhotoTap() {
     fileInputRef.current?.click();
@@ -143,12 +165,14 @@ export default function OnboardingIdentityPage() {
 
           <button
             type="button"
-            disabled={status !== "available"}
-            onClick={() => router.push("/onboarding/discovery")}
+            disabled={status !== "available" || saving}
+            onClick={saveAndContinue}
             className="mt-5 w-full rounded-full border-2 border-void bg-signal px-6 py-4 font-body text-[15px] font-medium text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] disabled:opacity-60 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[5px_5px_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
           >
-            Continue
+            {saving ? "Saving" : "Continue"}
           </button>
+
+          <ErrorNote message={error} className="mt-4 w-full text-left" />
         </div>
       </div>
     </main>
