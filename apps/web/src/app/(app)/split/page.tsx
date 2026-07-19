@@ -7,7 +7,9 @@ import { ModePill } from "@/components/ModePill";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { ErrorNote } from "@/components/ErrorNote";
-import { createSplit, getSplitStatus, settleMember } from "@/lib/split";
+import { createSplit, getSplitStatus } from "@/lib/split";
+import { settleShareOnChain } from "@/lib/settle";
+import { readSession } from "@/lib/session";
 import { getErrorMessage } from "@/lib/errors";
 import type { IdentityResolution } from "@/lib/identity";
 import type { MemberStatus } from "@/lib/split";
@@ -62,7 +64,15 @@ function MemberAvatar() {
   );
 }
 
-function DashboardStage({ splitId, shareToken }: { splitId: string; shareToken: string }) {
+function DashboardStage({
+  splitId,
+  shareToken,
+  organizerAddress,
+}: {
+  splitId: string;
+  shareToken: string;
+  organizerAddress: string;
+}) {
   const [statuses, setStatuses] = useState<MemberStatus[] | null>(null);
   const [settlingInput, setSettlingInput] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,13 +95,16 @@ function DashboardStage({ splitId, shareToken }: { splitId: string; shareToken: 
     };
   }, [splitId]);
 
-  async function handleSettle(memberId: string, input: string) {
+  async function handleSettle(memberId: string, input: string, amount: number) {
     setSettlingInput(input);
     setError(null);
     try {
-      // Placeholder hash until the settle transaction is signed in the
-      // browser; the API requires one so nothing is marked paid without it.
-      await settleMember(shareToken, memberId, `0x${"0".repeat(64)}`);
+      await settleShareOnChain({
+        shareToken,
+        memberId,
+        organizerAddress,
+        amount,
+      });
       setStatuses((prev) =>
         prev
           ? prev.map((status) =>
@@ -157,7 +170,7 @@ function DashboardStage({ splitId, shareToken }: { splitId: string; shareToken: 
               ) : (
                 <button
                   type="button"
-                  onClick={() => handleSettle(status.id, status.input)}
+                  onClick={() => handleSettle(status.id, status.input, status.amount)}
                   disabled={settlingInput === status.input}
                   className="rounded-full border-2 border-void bg-mint px-3 py-1 font-body text-[12px] font-medium text-void shadow-[2px_2px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0_0_0_0_var(--color-brut-line)] disabled:opacity-60 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-mint)]"
                 >
@@ -483,7 +496,11 @@ export default function SplitPage() {
         </StepCard>
       )}
 
-      {step === "dashboard" && <DashboardStage splitId={splitId ?? ""} shareToken={splitLink?.split("/").pop() ?? ""} />}
+      {step === "dashboard" && <DashboardStage
+          splitId={splitId ?? ""}
+          shareToken={splitLink?.split("/").pop() ?? ""}
+          organizerAddress={readSession()?.address ?? ""}
+        />}
     </div>
   );
 }

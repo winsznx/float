@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { linkFetch } from "@/lib/api";
+import { giveWitnessVerdictOnChain } from "@/lib/settle";
 import { getErrorMessage } from "@/lib/errors";
 import { ErrorNote } from "@/components/ErrorNote";
 
@@ -20,6 +21,7 @@ type PledgeView = {
   deadline_tz: string;
   status: string;
   failure_destination_label: string;
+  onchain_pledge_id: string | null;
 };
 
 function formatCurrency(value: number): string {
@@ -35,6 +37,7 @@ export default function WitnessPage({ params }: { params: Promise<{ token: strin
   const [pledge, setPledge] = useState<PledgeView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<"success" | "failure" | null>(null);
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -51,15 +54,22 @@ export default function WitnessPage({ params }: { params: Promise<{ token: strin
   }, [token]);
 
   async function give(verdict: "success" | "failure") {
+    if (!pledge?.onchain_pledge_id) {
+      setError("This pledge isn't locked on-chain yet.");
+      return;
+    }
     setSubmitting(verdict);
     setError(null);
     try {
-      // Placeholder hash until the witness signs the on-chain resolution; the
-      // API requires one so no verdict is recorded without a transaction.
-      const updated = await linkFetch<PledgeView>(`/witness/${token}`, {
-        method: "POST",
-        body: { verdict, txHash: `0x${"0".repeat(64)}` },
+      // The stake only moves because of this call — the API records the
+      // outcome, it never decides it.
+      await giveWitnessVerdictOnChain({
+        witnessToken: token,
+        onchainPledgeId: pledge.onchain_pledge_id,
+        succeeded: verdict === "success",
+        email: email || undefined,
       });
+      const updated = await linkFetch<PledgeView>(`/witness/${token}`);
       setPledge(updated);
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -119,6 +129,22 @@ export default function WitnessPage({ params }: { params: Promise<{ token: strin
         <p className="mt-4 font-mono text-[11px] uppercase tracking-wide text-muted-2">
           Due {deadline}
         </p>
+
+        {!resolved && (
+          <div className="mt-6 border-t-2 border-border-strong pt-5">
+            <label htmlFor="witness-email" className="font-mono text-xs uppercase tracking-wide text-muted">
+              Your email
+            </label>
+            <input
+              id="witness-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="mt-2 w-full rounded-md border-2 border-void bg-void-3 px-4 py-3 font-body text-[15px] text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+            />
+          </div>
+        )}
 
         <ErrorNote message={error} className="mt-5" />
 

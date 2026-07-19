@@ -3,14 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import gsap from "gsap";
-
-const CHAIN_BALANCES = [
-  { chain: "Base", value: 420.5 },
-  { chain: "Arbitrum", value: 612.1 },
-  { chain: "Polygon", value: 215.23 },
-];
-
-const TOTAL = 1247.83;
+import { getBalance, type UnifiedBalance } from "@/lib/balance";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -27,6 +20,24 @@ export function BalanceDiscovery() {
   const valueRef = useRef<HTMLSpanElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
   const [revealed, setRevealed] = useState(false);
+  const [balance, setBalance] = useState<UnifiedBalance | null>(null);
+
+  // The "wow moment" only lands if the numbers are the user's real holdings —
+  // this is the first time they see everything they own as one figure.
+  useEffect(() => {
+    let cancelled = false;
+    getBalance()
+      .then((result) => {
+        if (!cancelled) setBalance(result);
+      })
+      .catch(() => {
+        // An empty breakdown still animates to a real $0.00 total.
+        if (!cancelled) setBalance({ total: 0, chains: [], tokens: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const chains = chainRefs.current.filter(
@@ -35,14 +46,14 @@ export function BalanceDiscovery() {
     const total = totalRef.current;
     const value = valueRef.current;
     const glow = glowRef.current;
-    if (!total || !value || !glow) return;
+    if (!total || !value || !glow || !balance) return;
 
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
     if (prefersReducedMotion) {
-      value.textContent = formatCurrency(TOTAL);
+      value.textContent = formatCurrency(balance.total);
       gsap.set(chains, { opacity: 0 });
       gsap.set(total, { opacity: 1 });
       const frame = requestAnimationFrame(() => setRevealed(true));
@@ -67,7 +78,7 @@ export function BalanceDiscovery() {
       .to(
         counter,
         {
-          value: TOTAL,
+          value: balance.total,
           duration: 0.4,
           ease: "expo.out",
           onUpdate: () => {
@@ -82,21 +93,21 @@ export function BalanceDiscovery() {
     return () => {
       tl.kill();
     };
-  }, []);
+  }, [balance]);
 
   return (
     <div className="flex w-full flex-col items-center">
       <div className="relative flex h-28 w-full flex-col items-center justify-center gap-2">
-        {CHAIN_BALANCES.map((balance, i) => (
+        {(balance?.chains ?? []).map((row, i) => (
           <div
-            key={balance.chain}
+            key={row.chain}
             ref={(el) => {
               chainRefs.current[i] = el;
             }}
             className="flex items-center gap-2 font-body text-[15px] text-text"
           >
-            <span className="text-muted">{balance.chain}</span>
-            <span className="font-mono">{formatCurrency(balance.value)}</span>
+            <span className="text-muted">{row.chain}</span>
+            <span className="font-mono">{formatCurrency(row.value)}</span>
           </div>
         ))}
 

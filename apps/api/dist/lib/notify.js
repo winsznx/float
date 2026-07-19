@@ -28,7 +28,9 @@ async function record(userId, type, payload) {
         .insert({ user_id: userId, type, payload: payload });
 }
 export async function notifyClaim(params) {
-    const url = `${env.webOrigin}/claim/${params.sendId}`;
+    // The token, not the row id — a sequential or guessable id would let anyone
+    // enumerate other people's claims.
+    const url = `${env.webOrigin}/claim/${params.claimToken}`;
     await resend().emails.send({
         from: env.emailFrom,
         to: [params.email],

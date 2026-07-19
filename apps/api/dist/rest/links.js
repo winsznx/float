@@ -12,15 +12,28 @@ import { getErrorMessage } from "../lib/errors.js";
 export function registerLinkRoutes(app) {
     /** Split settle link. */
     app.get("/settle/:token", async (req, reply) => {
-        const { data, error } = await serviceDb()
+        const db = serviceDb();
+        const { data, error } = await db
             .from("splits")
-            .select("id, name, total_amount, token, status, split_members(id, member_ref, share_amount, settled)")
+            .select("id, name, total_amount, token, status, organizer_id, split_members(id, member_ref, share_amount, settled)")
             .eq("share_link_token", req.params.token)
             .maybeSingle();
         if (error || !data) {
             return reply.code(404).send({ error: "This link is no longer valid." });
         }
-        return data;
+        // Members settle by paying the organizer directly, so the link has to
+        // carry their address. Nothing else about the organizer is exposed.
+        const { data: organizer } = await db
+            .from("users")
+            .select("address, handle")
+            .eq("id", data.organizer_id)
+            .maybeSingle();
+        const { organizer_id: _omitted, ...split } = data;
+        return {
+            ...split,
+            organizerAddress: organizer?.address ?? null,
+            organizerHandle: organizer?.handle ?? null,
+        };
     });
     /** Marks one member settled. Requires the tx hash so the DB never claims a
      *  settlement the chain has not seen. */
@@ -57,6 +70,77 @@ export function registerLinkRoutes(app) {
             await db.from("splits").update({ status: "settled" }).eq("id", split.id);
         }
         return data;
+    });
+    /**
+     * Claim view for a send to someone with no FLOAT account. The claim token is
+     * generated per send; the sender's identity is not exposed beyond a handle.
+     */
+    app.get("/claim/:token", async (req, reply) => {
+        const db = serviceDb();
+        const { data, error } = await db
+            .from("sends")
+            .select("id, amount, token, note, status, claimed_at, recipient_input, sender_id")
+            .eq("claim_token", req.params.token)
+            .maybeSingle();
+        if (error || !data) {
+            return reply.code(404).send({ error: "This link is no longer valid." });
+        }
+        const { data: sender } = await db
+            .from("users")
+            .select("handle, address")
+            .eq("id", data.sender_id)
+            .maybeSingle();
+        const { sender_id: _omitted, ...send } = data;
+        return { ...send, senderHandle: sender?.handle ?? null };
+    });
+    /** Marks a send claimed once the recipient has a wallet. */
+    app.post("/claim/:token", async (req, reply) => {
+        const address = req.body?.address;
+        if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+            return reply.code(400).send({ error: "A wallet address is required." });
+        }
+        const db = serviceDb();
+        const { data: send } = await db
+            .from("sends")
+            .select("id, claimed_at")
+            .eq("claim_token", req.params.token)
+            .maybeSingle();
+        if (!send)
+            return reply.code(404).send({ error: "This link is no longer valid." });
+        if (send.claimed_at) {
+            return reply.code(409).send({ error: "This was already claimed." });
+        }
+        const { data, error } = await db
+            .from("sends")
+            .update({
+            recipient_address: address.toLowerCase(),
+            claimed_at: new Date().toISOString(),
+        })
+            .eq("id", send.id)
+            .select("id, amount, token, claimed_at")
+            .single();
+        if (error)
+            return reply.code(400).send({ error: getErrorMessage(error) });
+        return data;
+    });
+    /** Public pledge, for the shareable accountability card. */
+    app.get("/pledge/:id", async (req, reply) => {
+        const db = serviceDb();
+        const { data, error } = await db
+            .from("pledges")
+            .select("id, goal, stake_amount, token, deadline_unix, status, failure_destination_label, is_public, pledger_id")
+            .eq("id", req.params.id)
+            .maybeSingle();
+        if (error || !data || !data.is_public) {
+            return reply.code(404).send({ error: "This pledge isn't public." });
+        }
+        const { data: pledger } = await db
+            .from("users")
+            .select("handle")
+            .eq("id", data.pledger_id)
+            .maybeSingle();
+        const { pledger_id: _omitted, ...pledge } = data;
+        return { ...pledge, pledgerHandle: pledger?.handle ?? null };
     });
     /** Leash beneficiary claim view. */
     app.get("/leash/claim/:token", async (req, reply) => {

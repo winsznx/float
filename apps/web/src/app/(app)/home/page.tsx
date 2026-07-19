@@ -1,6 +1,7 @@
 import { BalanceDisplay } from "@/components/BalanceDisplay";
 import { HomePromoCard } from "@/components/HomePromoCard";
 import { HomeQuickActions } from "@/components/HomeQuickActions";
+import { ActivityFeed } from "@/components/ActivityFeed";
 
 export default function HomePage() {
   return (
@@ -12,11 +13,7 @@ export default function HomePage() {
 
       <HomeQuickActions />
 
-      <div className="flex items-center justify-center rounded-lg border-2 border-void bg-surface py-12 shadow-[5px_5px_0_0_var(--color-brut-line)]">
-        <p className="font-body text-sm text-muted">
-          No recent activity yet
-        </p>
-      </div>
+      <ActivityFeed />
     </div>
   );
 }

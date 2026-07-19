@@ -1,3 +1,17 @@
+export type NotificationRow = {
+    id: string;
+    type: string;
+    payload: Record<string, unknown>;
+    read: boolean;
+    createdAt: string;
+};
+export type ActivityRow = {
+    id: string;
+    type: string;
+    refType: string;
+    refId: string;
+    createdAt: string;
+};
 export declare const appRouter: import("@trpc/server").TRPCBuiltRouter<{
     ctx: import("../trpc.js").Context;
     meta: object;
@@ -536,38 +550,19 @@ export declare const appRouter: import("@trpc/server").TRPCBuiltRouter<{
         /** Unified home feed. RLS scopes it to the caller's own rows. */
         activity: import("@trpc/server").TRPCQueryProcedure<{
             input: void;
-            output: {
-                created_at: string;
-                id: string;
-                ref_id: string;
-                ref_type: string;
-                type: string;
-                user_id: string;
-            }[];
+            output: ActivityRow[];
             meta: object;
         }>;
         notifications: import("@trpc/server").TRPCQueryProcedure<{
             input: void;
-            output: {
-                created_at: string;
-                id: string;
-                payload: import("@float/db").Json;
-                read: boolean;
-                type: string;
-                user_id: string;
-            }[];
+            output: NotificationRow[];
             meta: object;
         }>;
         markRead: import("@trpc/server").TRPCMutationProcedure<{
             input: void;
             output: {
-                created_at: string;
-                id: string;
-                payload: import("@float/db").Json;
-                read: boolean;
-                type: string;
-                user_id: string;
-            }[];
+                updated: number;
+            };
             meta: object;
         }>;
     }>>;

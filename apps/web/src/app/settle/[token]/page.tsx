@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { linkFetch } from "@/lib/api";
+import { settleShareOnChain } from "@/lib/settle";
 import { getErrorMessage } from "@/lib/errors";
 import { ErrorNote } from "@/components/ErrorNote";
 
@@ -17,6 +18,8 @@ type SplitView = {
   total_amount: number;
   token: string;
   status: string;
+  organizerAddress: string | null;
+  organizerHandle: string | null;
   split_members: Array<{
     id: string;
     member_ref: string;
@@ -38,6 +41,7 @@ export default function SettlePage({ params }: { params: Promise<{ token: string
   const [split, setSplit] = useState<SplitView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [settling, setSettling] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -53,15 +57,22 @@ export default function SettlePage({ params }: { params: Promise<{ token: string
     };
   }, [token]);
 
-  async function settle(memberId: string) {
+  async function settle(memberId: string, amount: number) {
+    if (!split?.organizerAddress) {
+      setError("The organizer has no payout address yet.");
+      return;
+    }
     setSettling(memberId);
     setError(null);
     try {
-      // Placeholder hash until the settle transaction is signed in the
-      // browser; the API requires one so nothing is marked paid without it.
-      await linkFetch(`/settle/${token}`, {
-        method: "POST",
-        body: { memberId, txHash: `0x${"0".repeat(64)}` },
+      // Magic signs the member in on the spot if they have no account — this
+      // is the whole point of the link: no wallet install, no app.
+      await settleShareOnChain({
+        shareToken: token,
+        memberId,
+        organizerAddress: split.organizerAddress,
+        amount,
+        email: email || undefined,
       });
       const refreshed = await linkFetch<SplitView>(`/settle/${token}`);
       setSplit(refreshed);
@@ -122,7 +133,7 @@ export default function SettlePage({ params }: { params: Promise<{ token: string
                 ) : (
                   <button
                     type="button"
-                    onClick={() => settle(member.id)}
+                    onClick={() => settle(member.id, member.share_amount)}
                     disabled={settling === member.id}
                     className="rounded-full border-2 border-void bg-mint px-3 py-1 font-body text-[12px] font-medium text-void shadow-[2px_2px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0_0_0_0_var(--color-brut-line)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint"
                   >
@@ -133,6 +144,25 @@ export default function SettlePage({ params }: { params: Promise<{ token: string
             </div>
           ))}
         </div>
+
+        {outstanding.length > 0 && (
+          <div className="mt-6 border-t-2 border-border-strong pt-5">
+            <label htmlFor="settle-email" className="font-mono text-xs uppercase tracking-wide text-muted">
+              Your email
+            </label>
+            <input
+              id="settle-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="mt-2 w-full rounded-md border-2 border-void bg-void-3 px-4 py-3 font-body text-[15px] text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint"
+            />
+            <p className="mt-2 font-body text-[12px] text-muted">
+              We&apos;ll create your wallet automatically. No app, no seed phrase.
+            </p>
+          </div>
+        )}
 
         <ErrorNote message={error} className="mt-5" />
 

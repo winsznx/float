@@ -1,7 +1,7 @@
 export declare function notifyClaim(params: {
     email: string;
     amount: number;
-    sendId: string;
+    claimToken: string;
 }): Promise<void>;
 export declare function notifySettleRequest(params: {
     email: string;

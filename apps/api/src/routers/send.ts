@@ -5,6 +5,7 @@ import { resolveIdentity } from "../lib/identity.js";
 import { serviceDb } from "../lib/supabase.js";
 import { notifyClaim } from "../lib/notify.js";
 import { getErrorMessage } from "../lib/errors.js";
+import { randomBytes } from "node:crypto";
 
 const ARBITRUM_ONE = 42161;
 // Resolution returns display labels; the schema stores numeric chain ids.
@@ -38,6 +39,12 @@ export const sendRouter = router({
     .mutation(async ({ ctx, input }) => {
       const resolution = await resolveIdentity(input.recipient);
 
+      // A recipient with no address yet needs an unguessable claim token.
+      // sends.claim_token is nullable with no default, so it has to be minted
+      // here — without it the claim email links nowhere.
+      const needsClaim = !resolution.resolvedAddress;
+      const claimToken = needsClaim ? randomBytes(16).toString("hex") : null;
+
       const { data, error } = await ctx.db
         .from("sends")
         .insert({
@@ -54,6 +61,7 @@ export const sendRouter = router({
           status: input.txHash ? "submitted" : "pending",
           tx_hash: input.txHash ?? null,
           note: input.note ?? null,
+          claim_token: claimToken,
         })
         .select()
         .single();
@@ -78,12 +86,12 @@ export const sendRouter = router({
 
       // A recipient with no FLOAT account gets a claim link rather than funds
       // landing somewhere they cannot reach.
-      if (resolution.isNewUser && resolution.type === "email") {
+      if (needsClaim && resolution.type === "email" && claimToken) {
         try {
           await notifyClaim({
             email: resolution.input,
             amount: input.amount,
-            sendId: data.id,
+            claimToken,
           });
         } catch (notifyError) {
           // The send is already persisted; a mail failure must not roll it back.

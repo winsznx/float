@@ -34,9 +34,11 @@ async function record(userId: string | null, type: string, payload: Record<strin
 export async function notifyClaim(params: {
   email: string;
   amount: number;
-  sendId: string;
+  claimToken: string;
 }): Promise<void> {
-  const url = `${env.webOrigin}/claim/${params.sendId}`;
+  // The token, not the row id — a sequential or guessable id would let anyone
+  // enumerate other people's claims.
+  const url = `${env.webOrigin}/claim/${params.claimToken}`;
   await resend().emails.send({
     from: env.emailFrom,
     to: [params.email],
