@@ -1,20 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { notFound } from "next/navigation";
-import {
-  loginWithEmailOtp,
-  getWalletAddress,
-  sign7702Authorization,
-  isLoggedIn,
-  logout,
-} from "@/lib/chain/magic";
-import {
-  createUniversalAccount,
-  toParticleAuthorization,
-} from "@/lib/chain/universal-account";
 import { getErrorMessage } from "@/lib/errors";
 import { ErrorNote } from "@/components/ErrorNote";
+
+// Both chain modules are imported lazily inside run(). magic-sdk and the
+// Particle SDK both touch browser globals at module scope, which crashes the
+// static export if they load during prerender.
 
 /**
  * PHASE 3 PROOF 2 — a Magic-provisioned wallet completing an EIP-7702
@@ -24,10 +16,12 @@ import { ErrorNote } from "@/components/ErrorNote";
  * so it needs a browser and a human to complete the email OTP. That is why
  * this is a page rather than a script.
  *
- * Dev-only — 404s in production builds.
+ * Dev-only. Guarded by a render check rather than notFound(), because
+ * notFound() during static export fails the production build outright.
  */
 
 const ARBITRUM_ONE = 42161;
+const IS_DEV = process.env.NODE_ENV !== "production";
 
 type Step = {
   label: string;
@@ -36,8 +30,6 @@ type Step = {
 };
 
 export default function MagicSevenSevenZeroTwoProof() {
-  if (process.env.NODE_ENV === "production") notFound();
-
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +43,14 @@ export default function MagicSevenSevenZeroTwoProof() {
     setSteps([]);
 
     try {
+      const [
+        { loginWithEmailOtp, getWalletAddress, sign7702Authorization, isLoggedIn, logout },
+        { createUniversalAccount, toParticleAuthorization },
+      ] = await Promise.all([
+        import("@/lib/chain/magic"),
+        import("@/lib/chain/universal-account"),
+      ]);
+
       if (await isLoggedIn()) {
         await logout();
         push({ label: "cleared previous Magic session", ok: true });
@@ -121,6 +121,14 @@ export default function MagicSevenSevenZeroTwoProof() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!IS_DEV) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-6">
+        <p className="font-mono text-sm text-muted">Not available.</p>
+      </main>
+    );
   }
 
   return (
