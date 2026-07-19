@@ -5,6 +5,7 @@
   "description": "FLOAT backend API \u2014 phase 4",
   "dependencies": {
     "@fastify/cors": "^11.3.0",
+    "@fastify/rate-limit": "^11.1.0",
     "@magic-sdk/admin": "^2.8.2",
     "@particle-network/universal-account-sdk": "^2.0.3",
     "@supabase/supabase-js": "^2.110.7",
@@ -22,7 +23,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "verify": "node scripts/verify-api.mjs"
+    "verify": "node scripts/verify-api.mjs",
+    "verify:security": "node scripts/verify-security.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

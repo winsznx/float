@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import { appRouter, type AppRouter } from "./routers/index.js";
 import { createContext } from "./trpc.js";
@@ -16,14 +17,54 @@ await app.register(cors, {
   credentials: true,
 });
 
+/**
+ * Rate limiting.
+ *
+ * Keyed on the caller's user id when they have a session, falling back to IP.
+ * The capability-link routes are the exposed surface — they take no session
+ * and are reachable by anyone with a URL — so without this a leaked or guessed
+ * token could be brute-forced at line rate.
+ */
+await app.register(rateLimit, {
+  max: 120,
+  timeWindow: "1 minute",
+  keyGenerator: (req) => {
+    const auth = req.headers.authorization;
+    return auth ? `user:${auth.slice(-32)}` : `ip:${req.ip}`;
+  },
+  errorResponseBuilder: () => ({
+    error: "Too many requests. Slow down and try again shortly.",
+  }),
+});
+
+// The API serves JSON to a known origin; nothing here should ever be framed,
+// sniffed as another content type, or leak a referrer to a third party.
+app.addHook("onSend", async (_req, reply) => {
+  reply.header("X-Content-Type-Options", "nosniff");
+  reply.header("X-Frame-Options", "DENY");
+  reply.header("Referrer-Policy", "no-referrer");
+});
+
 app.get("/health", async () => ({
   ok: true,
   service: "float-api",
   time: new Date().toISOString(),
 }));
 
-// Capability-token links: opened by people with no session.
-await app.register(async (instance) => registerLinkRoutes(instance), { prefix: "/link" });
+// Capability-token links: opened by people with no session. Tighter limit
+// than the app, because a token is the only thing standing between a stranger
+// and the data behind it.
+await app.register(
+  async (instance) => {
+    await instance.register(rateLimit, {
+      max: 30,
+      timeWindow: "1 minute",
+      keyGenerator: (req) => `link:${req.ip}`,
+    });
+    registerLinkRoutes(instance);
+  },
+  { prefix: "/link" }
+);
 
 // The authenticated app.
 await app.register(fastifyTRPCPlugin<AppRouter>, {
