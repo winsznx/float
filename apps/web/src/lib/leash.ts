@@ -1,14 +1,18 @@
+import { api } from "@/lib/api";
 import type { IdentityResolution } from "@/lib/identity";
 
 export type ContractScope = "basic" | "advanced";
 
 export type Leash = {
+  id: string;
   leashId: string;
   beneficiary: string;
   spendLimit: number;
+  spent: number;
   contractScope: ContractScope;
   contractAddress: string | null;
   expiry: string;
+  claimUrl: string;
 };
 
 type CreateLeashParams = {
@@ -17,42 +21,53 @@ type CreateLeashParams = {
   contractScope: ContractScope;
   contractAddress: string | null;
   expiry: string;
+  onchainLeashId?: string;
+  txHash?: string;
 };
 
-// TODO: replace mock with LeashManager.createLeash() contract call (see PRD Leash Contract).
+const browserTimeZone = (): string =>
+  Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
 export async function createLeash({
   beneficiary,
   spendLimit,
   contractScope,
   contractAddress,
   expiry,
+  onchainLeashId,
+  txHash,
 }: CreateLeashParams): Promise<Leash> {
-  await new Promise((resolve) => setTimeout(resolve, 700));
-  return {
-    leashId: `0x${Math.random().toString(16).slice(2, 10)}${Date.now().toString(16)}`,
+  const row = await api.leash.create.mutate({
     beneficiary: beneficiary.input,
     spendLimit,
     contractScope,
-    contractAddress,
+    allowedContracts: contractAddress ? [contractAddress] : [],
+    expiryDate: expiry,
+    // The deadline is end-of-day in the creator's zone, resolved server-side.
+    timezone: browserTimeZone(),
+    onchainLeashId,
+    txHash,
+  });
+
+  return {
+    id: row.id,
+    leashId: row.onchain_leash_id ?? row.id,
+    beneficiary: row.beneficiary_ref,
+    spendLimit: row.spend_limit,
+    spent: row.spent,
+    contractScope: row.contract_scope as ContractScope,
+    contractAddress: row.allowed_contracts?.[0] ?? null,
     expiry,
+    claimUrl: row.claimUrl,
   };
 }
 
-const DEMO_REFERENCE_LIMIT = 500;
-const DEMO_REFERENCE_USED = 180;
-
-// TODO: replace mock with live usage feed from LeashManager.remainingBalance() (see PRD Active Leash dashboard).
-export async function getLeashUsage(
-  leashId: string,
-  spendLimit: number
-): Promise<number> {
-  void leashId;
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  return Math.min(spendLimit, (DEMO_REFERENCE_USED / DEMO_REFERENCE_LIMIT) * spendLimit);
+/** Dollars spent so far. Mirrored from chain events by the indexer. */
+export async function getLeashUsage(id: string): Promise<number> {
+  const row = await api.leash.get.query({ id });
+  return row.spent;
 }
 
-// TODO: replace mock with LeashManager.revoke() contract call.
-export async function revokeLeash(leashId: string): Promise<void> {
-  void leashId;
-  await new Promise((resolve) => setTimeout(resolve, 500));
+export async function revokeLeash(id: string, txHash: string): Promise<void> {
+  await api.leash.revoke.mutate({ id, txHash });
 }

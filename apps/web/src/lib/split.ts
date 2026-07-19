@@ -1,32 +1,53 @@
+import { api, linkFetch } from "@/lib/api";
+import type { IdentityResolution } from "@/lib/identity";
+
 export type MemberStatus = {
+  id: string;
   input: string;
   amount: number;
   settled: boolean;
 };
 
-const MOCK_STATUS: MemberStatus[] = [
-  { input: "jess.eth", amount: 42.5, settled: true },
-  { input: "sam@example.com", amount: 42.5, settled: false },
-  { input: "alex.eth", amount: 42.5, settled: false },
-];
-
-// TODO: replace mock with real split-link generation service.
-export async function generateSplitLink(): Promise<string> {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  const suffix = Math.random().toString(36).slice(2, 8);
-  return `float.app/settle/${suffix}`;
+/** Creates the split, its members, and the share link — all persisted. */
+export async function createSplit(params: {
+  name?: string;
+  totalAmount: number;
+  method: "equal" | "custom" | "percentage";
+  members: Array<{ ref: string; shareAmount: number }>;
+}): Promise<{ id: string; shareUrl: string; members: MemberStatus[] }> {
+  const split = await api.split.create.mutate(params);
+  return {
+    id: split.id,
+    shareUrl: split.shareUrl,
+    members: split.members.map((m) => ({
+      id: m.id,
+      input: m.member_ref,
+      amount: m.share_amount,
+      settled: m.settled,
+    })),
+  };
 }
 
-// TODO: replace mock with real split status lookup (see PRD Split Flow, organizer dashboard).
 export async function getSplitStatus(splitId: string): Promise<MemberStatus[]> {
-  void splitId;
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  return MOCK_STATUS;
+  const split = await api.split.get.query({ id: splitId });
+  return (split.split_members ?? []).map((m) => ({
+    id: m.id,
+    input: m.member_ref,
+    amount: m.share_amount,
+    settled: m.settled,
+  }));
 }
 
-// TODO: replace mock with real one-tap settle call (see PRD Split Flow, organizer dashboard).
-export async function settleMember(splitId: string, input: string): Promise<void> {
-  void splitId;
-  void input;
-  await new Promise((resolve) => setTimeout(resolve, 500));
+/** Settles one member through the capability-token link. */
+export async function settleMember(
+  shareToken: string,
+  memberId: string,
+  txHash: string
+): Promise<void> {
+  await linkFetch(`/settle/${shareToken}`, {
+    method: "POST",
+    body: { memberId, txHash },
+  });
 }
+
+export type { IdentityResolution };

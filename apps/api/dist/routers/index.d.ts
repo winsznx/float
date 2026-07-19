@@ -182,7 +182,7 @@ export declare const appRouter: import("@trpc/server").TRPCBuiltRouter<{
                     shareAmount: number;
                 }[];
                 name?: string | undefined;
-                method?: "equal" | "custom" | "percentage" | undefined;
+                method?: "custom" | "equal" | "percentage" | undefined;
             };
             output: {
                 members: {

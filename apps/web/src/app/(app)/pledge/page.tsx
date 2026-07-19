@@ -9,7 +9,8 @@ import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { PledgeCard } from "@/components/PledgeCard";
 import { ErrorNote } from "@/components/ErrorNote";
-import { createPledge, FAILURE_DESTINATIONS } from "@/lib/pledge";
+import { createPledge, getFailureDestinations } from "@/lib/pledge";
+import type { FailureDestination } from "@/lib/pledge";
 import { getErrorMessage } from "@/lib/errors";
 import type { IdentityResolution } from "@/lib/identity";
 import type { Pledge } from "@/lib/pledge";
@@ -146,13 +147,28 @@ export default function PledgePage() {
   const [creating, setCreating] = useState(false);
   const [pledge, setPledge] = useState<Pledge | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [destinations, setDestinations] = useState<FailureDestination[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getFailureDestinations()
+      .then((rows) => {
+        if (!cancelled) setDestinations(rows);
+      })
+      .catch(() => {
+        // The picker still offers a custom address if the list can't load.
+        if (!cancelled) setDestinations([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stake = Number(stakeValue) || 0;
 
   const failureLabel = showCustomDestination
     ? customAddress.trim()
-    : FAILURE_DESTINATIONS.find((dest) => dest.id === selectedDestination)?.label ??
-      "";
+    : destinations.find((dest) => dest.id === selectedDestination)?.label ?? "";
 
   const handleWitnessChange = useCallback(
     (next: IdentityResolution | null) => setWitnessResolution(next),
@@ -189,7 +205,8 @@ export default function PledgePage() {
         goal,
         stake,
         witness: witnessResolution,
-        failureDestinationLabel: failureLabel,
+        destinationId: showCustomDestination ? "custom" : (selectedDestination ?? ""),
+        customAddress: showCustomDestination ? customAddress.trim() : undefined,
         deadline,
         isPublic,
       });
@@ -274,7 +291,7 @@ export default function PledgePage() {
           </p>
 
           <div className="mt-4 flex flex-col gap-2">
-            {FAILURE_DESTINATIONS.map((dest) => {
+            {destinations.map((dest) => {
               const active = !showCustomDestination && selectedDestination === dest.id;
               return (
                 <button

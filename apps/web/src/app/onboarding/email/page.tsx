@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { sendMagicLink } from "@/lib/auth";
+import { signInWithEmail } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/errors";
 import { ErrorNote } from "@/components/ErrorNote";
 
@@ -22,7 +22,7 @@ export default function OnboardingEmailPage() {
     setStatus("submitting");
     setError(null);
     try {
-      await sendMagicLink(email);
+      await signInWithEmail(email);
       setStatus("sent");
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -35,7 +35,7 @@ export default function OnboardingEmailPage() {
     setStatus("submitting");
     setError(null);
     try {
-      await sendMagicLink(email);
+      await signInWithEmail(email);
       setStatus("sent");
     } catch (caught) {
       setError(getErrorMessage(caught));

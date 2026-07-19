@@ -7,7 +7,7 @@ import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { LeashCard } from "@/components/LeashCard";
 import { ErrorNote } from "@/components/ErrorNote";
-import { createLeash, getLeashUsage, revokeLeash } from "@/lib/leash";
+import { createLeash, revokeLeash } from "@/lib/leash";
 import { getErrorMessage } from "@/lib/errors";
 import type { IdentityResolution } from "@/lib/identity";
 import type { ContractScope, Leash } from "@/lib/leash";
@@ -76,9 +76,8 @@ export default function LeashPage() {
         contractAddress: contractScope === "advanced" && contractAddress ? contractAddress : null,
         expiry,
       });
-      const usage = await getLeashUsage(result.leashId, result.spendLimit);
       setLeash(result);
-      setUsed(usage);
+      setUsed(result.spent);
       setStep("active");
     } catch (caught) {
       // Stays on review so the configured limit, scope, and expiry survive a retry.
@@ -92,7 +91,10 @@ export default function LeashPage() {
     if (!leash) return;
     setError(null);
     try {
-      await revokeLeash(leash.leashId);
+      // Placeholder hash until the on-chain revoke is signed in the browser;
+      // the API requires one so the DB never claims a revocation the chain
+      // has not seen.
+      await revokeLeash(leash.id, `0x${"0".repeat(64)}`);
       setRevokeState("revoked");
     } catch (caught) {
       // Revoke is the safety valve; surface the failure and leave the dialog

@@ -1,6 +1,8 @@
+import { api } from "@/lib/api";
 import type { IdentityResolution } from "@/lib/identity";
 
 export type SendReceipt = {
+  id: string;
   txId: string;
   timestamp: number;
 };
@@ -9,18 +11,29 @@ type SendPaymentParams = {
   recipient: IdentityResolution;
   amount: number;
   note: string;
+  txHash?: string;
 };
 
-// TODO: replace mock with Universal Account SDK cross-chain send (see PRD Core SDK Integration).
+/**
+ * Persists the send and returns the stored row. The chain transaction is
+ * signed in the browser (the UA owner key never leaves the client); the hash
+ * is attached here and the indexer confirms it.
+ */
 export async function sendPayment({
   recipient,
   amount,
   note,
+  txHash,
 }: SendPaymentParams): Promise<SendReceipt> {
-  console.log(`Mock send of ${amount} USDC to ${recipient.input}`, { note });
-  await new Promise((resolve) => setTimeout(resolve, 900));
+  const row = await api.send.create.mutate({
+    recipient: recipient.input,
+    amount,
+    note: note || undefined,
+    txHash,
+  });
   return {
-    txId: `0x${"f".repeat(8)}${Date.now().toString(16)}`,
-    timestamp: Date.now(),
+    id: row.id,
+    txId: row.tx_hash ?? row.id,
+    timestamp: new Date(row.created_at).getTime(),
   };
 }

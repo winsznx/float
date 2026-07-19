@@ -1,7 +1,5 @@
 import {
   UniversalAccount,
-  CHAIN_ID,
-  SUPPORTED_TOKEN_TYPE,
   type EIP7702Authorization,
   type IAssetsResponse,
   type ITransaction,
@@ -34,13 +32,26 @@ export type UnifiedBalance = {
   tokens: string[];
 };
 
+// Plain literals rather than the SDK's CHAIN_ID enum: that enum is built by an
+// obfuscated IIFE that comes back undefined once bundled, which threw
+// "Cannot read properties of undefined (reading 'ETHEREUM_MAINNET')" at module
+// scope in the browser. The numbers are chain ids and never change.
+export const CHAIN_IDS = {
+  ETHEREUM: 1,
+  BSC: 56,
+  BASE: 8453,
+  ARBITRUM: 42161,
+  XLAYER: 196,
+  SOLANA: 101,
+} as const;
+
 const CHAIN_LABELS: Record<number, string> = {
-  [CHAIN_ID.ETHEREUM_MAINNET]: "Ethereum",
-  [CHAIN_ID.BASE_MAINNET]: "Base",
-  [CHAIN_ID.ARBITRUM_MAINNET_ONE]: "Arbitrum",
-  [CHAIN_ID.BSC_MAINNET]: "BNB Chain",
-  [CHAIN_ID.XLAYER_MAINNET]: "X Layer",
-  [CHAIN_ID.SOLANA_MAINNET]: "Solana",
+  [CHAIN_IDS.ETHEREUM]: "Ethereum",
+  [CHAIN_IDS.BASE]: "Base",
+  [CHAIN_IDS.ARBITRUM]: "Arbitrum",
+  [CHAIN_IDS.BSC]: "BNB Chain",
+  [CHAIN_IDS.XLAYER]: "X Layer",
+  [CHAIN_IDS.SOLANA]: "Solana",
 };
 
 export function createUniversalAccount(ownerAddress: string): UniversalAccount {
@@ -101,7 +112,7 @@ export async function createUsdcTransfer(
   amount: string
 ): Promise<ITransaction> {
   return ua.createTransferTransaction({
-    token: { chainId: CHAIN_ID.ARBITRUM_MAINNET_ONE, address: ARBITRUM_USDC },
+    token: { chainId: CHAIN_IDS.ARBITRUM, address: ARBITRUM_USDC },
     amount,
     receiver,
   });
@@ -126,5 +137,5 @@ export function toParticleAuthorization(
   return { userOpHash, signature };
 }
 
-export { CHAIN_ID, SUPPORTED_TOKEN_TYPE, numberToHex };
+export { numberToHex };
 export type { ITransaction, EIP7702Authorization };

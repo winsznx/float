@@ -7,7 +7,7 @@ import { ModePill } from "@/components/ModePill";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { ErrorNote } from "@/components/ErrorNote";
-import { generateSplitLink, getSplitStatus, settleMember } from "@/lib/split";
+import { createSplit, getSplitStatus, settleMember } from "@/lib/split";
 import { getErrorMessage } from "@/lib/errors";
 import type { IdentityResolution } from "@/lib/identity";
 import type { MemberStatus } from "@/lib/split";
@@ -62,7 +62,7 @@ function MemberAvatar() {
   );
 }
 
-function DashboardStage({ splitId }: { splitId: string }) {
+function DashboardStage({ splitId, shareToken }: { splitId: string; shareToken: string }) {
   const [statuses, setStatuses] = useState<MemberStatus[] | null>(null);
   const [settlingInput, setSettlingInput] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,11 +85,13 @@ function DashboardStage({ splitId }: { splitId: string }) {
     };
   }, [splitId]);
 
-  async function handleSettle(input: string) {
+  async function handleSettle(memberId: string, input: string) {
     setSettlingInput(input);
     setError(null);
     try {
-      await settleMember(splitId, input);
+      // Placeholder hash until the settle transaction is signed in the
+      // browser; the API requires one so nothing is marked paid without it.
+      await settleMember(shareToken, memberId, `0x${"0".repeat(64)}`);
       setStatuses((prev) =>
         prev
           ? prev.map((status) =>
@@ -155,7 +157,7 @@ function DashboardStage({ splitId }: { splitId: string }) {
               ) : (
                 <button
                   type="button"
-                  onClick={() => handleSettle(status.input)}
+                  onClick={() => handleSettle(status.id, status.input)}
                   disabled={settlingInput === status.input}
                   className="rounded-full border-2 border-void bg-mint px-3 py-1 font-body text-[12px] font-medium text-void shadow-[2px_2px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0_0_0_0_var(--color-brut-line)] disabled:opacity-60 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-mint)]"
                 >
@@ -190,6 +192,7 @@ export default function SplitPage() {
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
   const [creatingLink, setCreatingLink] = useState(false);
   const [splitLink, setSplitLink] = useState<string | null>(null);
+  const [splitId, setSplitId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -236,8 +239,20 @@ export default function SplitPage() {
     setCreatingLink(true);
     setError(null);
     try {
-      const link = await generateSplitLink();
-      setSplitLink(link);
+      const created = await createSplit({
+        name: splitName || undefined,
+        totalAmount: total,
+        method: method === "equal" ? "equal" : "custom",
+        members: members.map((m) => ({
+          ref: m.input,
+          shareAmount:
+            method === "equal"
+              ? total / members.length
+              : Number(customAmounts[m.input] ?? 0),
+        })),
+      });
+      setSplitId(created.id);
+      setSplitLink(created.shareUrl);
       setStep("link");
     } catch (caught) {
       // Stays on the members step so the roster and amounts survive a retry.
@@ -261,7 +276,6 @@ export default function SplitPage() {
     }
   }
 
-  const splitId = splitLink ? splitLink.split("/").pop() ?? "" : "";
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -469,7 +483,7 @@ export default function SplitPage() {
         </StepCard>
       )}
 
-      {step === "dashboard" && <DashboardStage splitId={splitId} />}
+      {step === "dashboard" && <DashboardStage splitId={splitId ?? ""} shareToken={splitLink?.split("/").pop() ?? ""} />}
     </div>
   );
 }
