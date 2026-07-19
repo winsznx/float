@@ -91,10 +91,7 @@ export default function LeashPage() {
     if (!leash) return;
     setError(null);
     try {
-      // Placeholder hash until the on-chain revoke is signed in the browser;
-      // the API requires one so the DB never claims a revocation the chain
-      // has not seen.
-      await revokeLeash(leash.id, `0x${"0".repeat(64)}`);
+      await revokeLeash(leash.id, leash.leashId);
       setRevokeState("revoked");
     } catch (caught) {
       // Revoke is the safety valve; surface the failure and leave the dialog

@@ -1,0 +1,18 @@
+{
+  "network": "arbitrumOne",
+  "chainId": 42161,
+  "deployer": "0x88B59C52C90a257111C3E6Bb32F1983410E63A84",
+  "contracts": {
+    "LeashManager": {
+      "address": "0x63139db97859661CfDe4e6a0Af55Ab368a5b4091",
+      "blockNumber": 485873022,
+      "txHash": "0xd0ab761e75a1e9d380743ff114e45783d121275a62fe5a901941ec335e0f9b23"
+    },
+    "PledgeVault": {
+      "address": "0x925853a320914126DcFa0a3875D2722EeC60Fc9d",
+      "blockNumber": 485873032,
+      "txHash": "0xa297f1ad909f62223678fec42e1f1cce7f77f236931d90a691af3552135b619f"
+    }
+  },
+  "deployedAt": "2026-07-20T14:55:28.681Z"
+}

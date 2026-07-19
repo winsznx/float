@@ -6,7 +6,7 @@ Session-continuity log. Updated at every phase gate.
 
 ## Status
 
-**Current phase:** 3 — SDK integration → **surfaces verified, modules written; proofs blocked on keys + one product decision (see below)**
+**Current phase:** 6 (was 3) — SDK integration → **surfaces verified, modules written; proofs blocked on keys + one product decision (see below)**
 **Next phase:** 4 — Backend API services. Do not start without confirmation.
 
 **Deployed (Arbitrum Sepolia, 421614):**
@@ -26,6 +26,30 @@ Session-continuity log. Updated at every phase gate.
 | 7 · Testing & hardening | ⬜ not started |
 | 8 · Deployment | ⬜ not started |
 | 9 · Submission artifacts | ⬜ not started |
+
+
+## MAINNET — Arbitrum One (42161)
+
+- **LeashManager** `0x63139db97859661CfDe4e6a0Af55Ab368a5b4091` (block 485873022) — [verified](https://arbiscan.io/address/0x63139db97859661CfDe4e6a0Af55Ab368a5b4091#code)
+- **PledgeVault** `0x925853a320914126DcFa0a3875D2722EeC60Fc9d` (block 485873032) — [verified](https://arbiscan.io/address/0x925853a320914126DcFa0a3875D2722EeC60Fc9d#code)
+- Deploy cost: 0.0000278 ETH (~$0.08). `INDEXER_START_BLOCK=485873022`.
+
+**Why mainnet was mandatory, not optional:** the Particle UA SDK's
+assertSupportedChain rejects every testnet. `createUniversalTransaction({chainId: 421614})`
+throws "Chain 421614 is not supported" while 42161 is accepted. Leash and
+Pledge are unreachable through the Universal Account unless the contracts are
+on Arbitrum One. The Sepolia deployment remains as a reference but no UA flow
+can touch it.
+
+**Correction to the pitch:** the pledge slash is a same-chain ERC20
+`safeTransfer` to failureDestination (PledgeVault.sol:130), NOT a cross-chain
+transfer. The cross-chain property is on the *funding* side — the UA sources
+the stake from wherever the user holds value. Do not claim a cross-chain slash.
+
+**Not an on-chain guarantee:** LeashManager scopes by beneficiary, token, cap
+and expiry only. `createLeash` takes 4 params — there is no allowedContracts
+argument. Per-contract scoping is stored in Postgres for the UI and must not be
+presented as chain-enforced.
 
 ---
 

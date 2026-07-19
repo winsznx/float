@@ -1,4 +1,7 @@
 import { api } from "@/lib/api";
+import { createLeashOnChain, revokeLeashOnChain } from "@/lib/chain/contracts";
+import { magicSigner } from "@/lib/chain/signer";
+import { readSession } from "@/lib/session";
 import type { IdentityResolution } from "@/lib/identity";
 
 export type ContractScope = "basic" | "advanced";
@@ -21,12 +24,15 @@ type CreateLeashParams = {
   contractScope: ContractScope;
   contractAddress: string | null;
   expiry: string;
-  onchainLeashId?: string;
-  txHash?: string;
 };
 
 const browserTimeZone = (): string =>
   Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
+/** End-of-day in the creator's zone, matching the server's deadline rule. */
+function endOfDayUnix(date: string): number {
+  return Math.floor(new Date(`${date}T23:59:59`).getTime() / 1000);
+}
 
 export async function createLeash({
   beneficiary,
@@ -34,9 +40,23 @@ export async function createLeash({
   contractScope,
   contractAddress,
   expiry,
-  onchainLeashId,
-  txHash,
 }: CreateLeashParams): Promise<Leash> {
+  const session = readSession();
+  if (!session) throw new Error("Sign in to create a leash.");
+  if (!beneficiary.resolvedAddress) {
+    throw new Error("Couldn't resolve that beneficiary to an address.");
+  }
+
+  // The chain call happens first: if it reverts there is nothing to record,
+  // and a row without a transaction would claim authority that doesn't exist.
+  const { transactionId } = await createLeashOnChain({
+    ownerAddress: session.address,
+    beneficiaryAddress: beneficiary.resolvedAddress,
+    spendLimitUsd: spendLimit,
+    expiryUnix: endOfDayUnix(expiry),
+    sign: magicSigner(session.address),
+  });
+
   const row = await api.leash.create.mutate({
     beneficiary: beneficiary.input,
     spendLimit,
@@ -45,8 +65,7 @@ export async function createLeash({
     expiryDate: expiry,
     // The deadline is end-of-day in the creator's zone, resolved server-side.
     timezone: browserTimeZone(),
-    onchainLeashId,
-    txHash,
+    txHash: transactionId,
   });
 
   return {
@@ -68,6 +87,18 @@ export async function getLeashUsage(id: string): Promise<number> {
   return row.spent;
 }
 
-export async function revokeLeash(id: string, txHash: string): Promise<void> {
-  await api.leash.revoke.mutate({ id, txHash });
+export async function revokeLeash(id: string, onchainLeashId: string | null): Promise<void> {
+  const session = readSession();
+  if (!session) throw new Error("Sign in to revoke.");
+  if (!onchainLeashId) {
+    throw new Error("This leash has no on-chain id yet.");
+  }
+
+  const { transactionId } = await revokeLeashOnChain({
+    ownerAddress: session.address,
+    leashId: onchainLeashId,
+    sign: magicSigner(session.address),
+  });
+
+  await api.leash.revoke.mutate({ id, txHash: transactionId });
 }
