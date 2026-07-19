@@ -2,5 +2,15 @@
   "name": "@float/db",
   "version": "0.1.0",
   "private": true,
-  "description": "FLOAT db — see AGENT_PROGRESS.md for phase"
+  "description": "FLOAT database — Supabase migrations, generated types, RLS verification",
+  "type": "module",
+  "exports": {
+    ".": "./src/database.types.ts"
+  },
+  "scripts": {
+    "db:push": "supabase db push --linked",
+    "db:diff": "supabase db diff --linked",
+    "types:gen": "supabase gen types typescript --linked --schema public > src/database.types.ts",
+    "verify:rls": "node scripts/verify-rls.mjs"
+  }
 }

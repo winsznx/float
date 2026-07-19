@@ -172,3 +172,23 @@ Things the backend must not break, because the UI depends on them:
 - `resolveIdentity` **rejecting** now renders a `failed` state (added in `5d7e697`). Real ENS lookups will reject; the API should reject rather than return a null-ish success.
 - `getLeashUsage` returns a **number of dollars used**, not a ratio — `LeashCard` computes `used / spendLimit` itself.
 - `IdentityInput` only calls `resolveIdentity` when input matches `*.eth` or contains `@`. Bare addresses and Farcaster handles never reach it, despite `IdentityResolution.type` including `"farcaster"` and `"address"`. Resolution for those types is unreachable until the frontend gate is widened.
+
+---
+
+## 8. The nine unbacked values — seam functions and phase mapping (locked)
+
+Decision from the Phase 1 gate: each hardcoded value in §2 becomes a seam function, but they land across phases — and **balance is never a table**.
+
+| Value (from §2) | Seam function (Phase 6 swap target) | Served by | Phase |
+|---|---|---|---|
+| Unified balance | `getUnifiedBalance(): Promise<{total: number}>` | **live UA query** — not Postgres | 3 (service) / 4 (endpoint) |
+| Per-chain balances | `getChainBalances(): Promise<{chain: string; value: number}[]>` | live UA query | 3 / 4 |
+| Send max / source chain | derived from `getUnifiedBalance` + routing | live UA query | 3 / 4 |
+| Activity feed | `getActivity(): Promise<ActivityItem[]>` | `activity` table (created Phase 1, populated by indexer Phase 5) | 4 |
+| Notification badge | `getUnreadCount(): Promise<number>` | `notifications` table (created Phase 1) | 4, realtime in 6 |
+| Leash spend usage | `getLeashUsage` (exists) | `leashes.spent` — indexer-maintained cache | 5 |
+| Split roster | persisted via `splits`/`split_members` | Phase 1 tables | 4 |
+| Split status | `getSplitStatus` (exists) | `split_members` read | 4 |
+| Witness/claim surfaces | token-scoped REST | `*_token` columns (Phase 1) | 4 + 6 |
+
+**Deadline semantics (locked):** deadline = end of selected day (23:59:59) in the creator's local timezone, computed to unix seconds server-side at creation. `deadline_unix bigint` is authoritative (byte-for-byte what the contract stores); `deadline_tz` (IANA) rides alongside for display. Same pattern for leash expiry (`expiry_unix`, `expiry_tz`).
