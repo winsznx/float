@@ -6,16 +6,19 @@ Session-continuity log. Updated at every phase gate.
 
 ## Status
 
-**Current phase:** 2 — Smart Contracts → **built + fully tested; deployment blocked ONLY on gas funding**
+**Current phase:** 2 — Smart Contracts → **complete: deployed + verified on Arbitrum Sepolia, awaiting confirmation**
 **Next phase:** 3 — SDK integration. Do not start without confirmation.
 
-**⚠ To unblock deployment:** fund `0x88B59C52C90a257111C3E6Bb32F1983410E63A84` (throwaway deployer, key in `.env.local`) with ~0.01 Arbitrum Sepolia ETH, then run `npm run deploy:sepolia -w @float/contracts`. For Arbiscan verification set `ARBISCAN_API_KEY` (one free Etherscan v2 key covers Arbitrum) — deploy script verifies automatically, or rerun `npx hardhat verify` later.
+**Deployed (Arbitrum Sepolia, 421614):**
+- LeashManager `0x85eF03e9a1Fd2866644132E41c622F4f8d9ae588` (block 289239169) — [verified](https://sepolia.arbiscan.io/address/0x85eF03e9a1Fd2866644132E41c622F4f8d9ae588#code)
+- PledgeVault `0x63139db97859661CfDe4e6a0Af55Ab368a5b4091` (block 289239192) — [verified](https://sepolia.arbiscan.io/address/0x63139db97859661CfDe4e6a0Af55Ab368a5b4091#code)
+- Addresses + deploy blocks in `packages/contracts/deployments/arbitrumSepolia.json` and `.env.local` (`INDEXER_START_BLOCK=289239169`). Live reads confirmed post-deploy.
 
 | Phase | State |
 |---|---|
 | 0 · Foundation & frontend audit | ✅ complete |
 | 1 · Database (Supabase + RLS) | ✅ complete |
-| 2 · Contracts (LeashManager, PledgeVault) | 🟡 code+tests done; deploy awaits gas funding |
+| 2 · Contracts (LeashManager, PledgeVault) | ✅ complete — deployed + Arbiscan-verified |
 | 3 · SDK integration (Particle 7702, Magic, WalletConnect) | ⬜ not started |
 | 4 · Backend API services | ⬜ not started |
 | 5 · Event indexer | ⬜ not started |
@@ -74,7 +77,6 @@ Session-continuity log. Updated at every phase gate.
 ## Open questions
 
 1. **Failure-destination addresses — RESOLVED for contracts** (per-pledge param, zero-guard only; burn = dEaD locked). Curated gitcoin/dao addresses remain a Phase 4 picker-config item: user supplies verified addresses, or a research prompt fetches them.
-1a. **Deployer gas funding (blocks Phase 2 close-out).** Fund the address above; ~0.01 ETH is ample. `ARBISCAN_API_KEY` needed for verification.
 2. **Magic + EIP-7702 signing path (Phase 3 gate).** Unverified; highest-risk unknown.
 3. **`SUPABASE_JWT_SECRET`** — not fetchable via this CLI version; grab from dashboard → Project Settings → API → JWT Settings before Phase 3 (needed to mint Supabase sessions from Magic auth).
 4. **Four missing frontend surfaces** (`/settle/:token`, leash claim, witness resolution, public pledge page) — net-new build in Phase 6.
@@ -103,4 +105,4 @@ Session-continuity log. Updated at every phase gate.
 |---|---|---|---|---|
 | Phase 0 | ✅ | ✅ | ✅ | 4 consecutive clean builds after OG-font retry fix |
 | Phase 1 | ✅ | ✅ | ✅ | migrations in lockstep local↔remote; RLS 29/29; DB left with zero rows |
-| Phase 2 | ✅ | ✅ | ✅ | contracts 52/52; deploy pending gas funding |
+| Phase 2 | ✅ | ✅ | ✅ | contracts 52/52; deployed + verified on Arbitrum Sepolia; live reads confirmed |

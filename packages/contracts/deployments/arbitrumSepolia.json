@@ -1,0 +1,18 @@
+{
+  "network": "arbitrumSepolia",
+  "chainId": 421614,
+  "deployer": "0x88B59C52C90a257111C3E6Bb32F1983410E63A84",
+  "contracts": {
+    "LeashManager": {
+      "address": "0x85eF03e9a1Fd2866644132E41c622F4f8d9ae588",
+      "blockNumber": 289239169,
+      "txHash": "0xb167d60723db472b2cefcd28e6e562337728df82799b0eee489552f51cc34fdb"
+    },
+    "PledgeVault": {
+      "address": "0x63139db97859661CfDe4e6a0Af55Ab368a5b4091",
+      "blockNumber": 289239192,
+      "txHash": "0xd0ccb92d5dd7d587bcaedb0fe9180e5a5bd3506a957ff3bc0c48bd4ea5cd6230"
+    }
+  },
+  "deployedAt": "2026-07-19T21:25:12.102Z"
+}
