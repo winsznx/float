@@ -23,9 +23,10 @@ jobs:
       - run: npm ci
 
       # --max-warnings=0 so regressions like render-blocking font tags fail the
-      # build instead of landing as warnings nobody reads.
-      - run: npx eslint --max-warnings=0
+      # build instead of landing as warnings nobody reads. Runs across every
+      # workspace that defines the script.
+      - run: npm run lint
 
-      - run: npx tsc --noEmit
+      - run: npm run typecheck
 
       - run: npm run build
