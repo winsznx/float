@@ -9,6 +9,11 @@ import { env } from "./lib/env.js";
 const app = Fastify({
     logger: env.nodeEnv === "production" ? true : { transport: { target: "pino-pretty" } },
     maxParamLength: 5000,
+    // Railway terminates TLS at its edge and forwards, so without this req.ip is
+    // the proxy's address and every caller shares one rate-limit bucket — which
+    // silently defeats the limiter. Verified in production: 0/45 requests were
+    // limited until this was set.
+    trustProxy: true,
 });
 await app.register(cors, {
     origin: env.nodeEnv === "production" ? [env.webOrigin] : true,

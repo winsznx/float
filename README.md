@@ -2,6 +2,8 @@
 
 **Your money. Any chain. Just send.**
 
+**Live:** [float-web-production.up.railway.app](https://float-web-production.up.railway.app) · [API health](https://float-api-production-c8bb.up.railway.app/health)
+
 A chain-abstracted social money layer. One product, four modes, one identity, one balance — and the user never sees a chain selector, a gas prompt, or a bridge step.
 
 ---
