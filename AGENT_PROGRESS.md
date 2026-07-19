@@ -6,8 +6,8 @@ Session-continuity log. Updated at every phase gate.
 
 ## Status
 
-**Current phase:** 2 — Smart Contracts → **complete: deployed + verified on Arbitrum Sepolia, awaiting confirmation**
-**Next phase:** 3 — SDK integration. Do not start without confirmation.
+**Current phase:** 3 — SDK integration → **surfaces verified, modules written; proofs blocked on keys + one product decision (see below)**
+**Next phase:** 4 — Backend API services. Do not start without confirmation.
 
 **Deployed (Arbitrum Sepolia, 421614):**
 - LeashManager `0x85eF03e9a1Fd2866644132E41c622F4f8d9ae588` (block 289239169) — [verified](https://sepolia.arbiscan.io/address/0x85eF03e9a1Fd2866644132E41c622F4f8d9ae588#code)
@@ -19,7 +19,7 @@ Session-continuity log. Updated at every phase gate.
 | 0 · Foundation & frontend audit | ✅ complete |
 | 1 · Database (Supabase + RLS) | ✅ complete |
 | 2 · Contracts (LeashManager, PledgeVault) | ✅ complete — deployed + Arbiscan-verified |
-| 3 · SDK integration (Particle 7702, Magic, WalletConnect) | ⬜ not started |
+| 3 · SDK integration (Particle 7702, Magic, WalletConnect) | 🟡 verified + modules written; proofs need keys + mainnet decision |
 | 4 · Backend API services | ⬜ not started |
 | 5 · Event indexer | ⬜ not started |
 | 6 · Wire frontend → backend | ⬜ not started |
@@ -74,10 +74,32 @@ Session-continuity log. Updated at every phase gate.
 
 ---
 
+## Phase 3 — SDK surfaces verified (installed types + official docs)
+
+**Resolved: the Magic ↔ EIP-7702 path exists and is first-class.** `magic.wallet.sign7702Authorization({contractAddress, chainId, nonce?})` → `{v, r, s, signature?}` and `send7702Transaction({authorizationList})` — verified in installed magic-sdk@33.9.0 types AND in Magic's official docs (available since 33.4.0). Particle's docs explicitly list Magic as a verified 7702 provider with this exact call, plus a demo repo (soos3d/ua-7702-magic-demo). `chainId: 0` = universal cross-chain authorization. The documented flow: sign7702Authorization for the auth tuple (raw digest) + standard personal_sign for the UA rootHash — two separate signatures, never interchangeable.
+
+**⚠ MATERIAL FINDING: Particle Universal Accounts v2 is mainnet-only.** The SDK's `assertSupportedChain` gates on exactly [Ethereum, BSC, Base, Arbitrum One, XLayer, Solana] — zero testnet ids in the bundle. Official docs confirm: the 2024 testnet program was retired at mainnet launch; the FAQ states UAs must hold real Primary Assets; no sandbox/fake-funds mode exists. `UNIVERSALX_RPC_URL_STAGING` is undocumented (likely internal pre-prod for the same mainnets — unconfirmed). **The build prompt's "cross-chain USDC transfer on testnet" is impossible with this SDK.** Options at the gate: (a) mainnet proof with small real value (~$5–10 USDC through the UA on Arbitrum One), (b) keep contracts on Sepolia and prove the UA flow on mainnet — the two proofs are independent.
+
+**Modules written** (`apps/web/src/lib/chain/`, typed strictly against installed .d.ts):
+- `config.ts` — env access, throws on missing keys (no silent mock fallback)
+- `magic.ts` — lazy browser singleton: loginWithEmailOTP, getIdToken (DID for server verification), getWalletAddress (via wallets.ethereum — publicAddress moved in v33), sign7702Authorization
+- `universal-account.ts` — UA construction (useEIP7702: true), `getUnifiedBalance()` (THE balance seam: total + per-chain + tokens from getPrimaryAssets), `createUsdcTransfer()` (cross-chain → USDC on Arbitrum One), `toParticleAuthorization()` (Magic v/r/s → Particle {userOpHash, signature}, v normalized to yParity)
+- `wagmi.ts` — wagmi@2.19.5 config (pinned v2 per stack; v3 is out, not adopted), injected + optional WalletConnect connector
+
+**Blocked on user:**
+1. Particle dashboard keys (PROJECT_ID / CLIENT_KEY / APP_ID)
+2. Magic keys (publishable + secret)
+3. WalletConnect project id (optional — injected wallets work without)
+4. SUPABASE_JWT_SECRET (dashboard; management API doesn't expose it via CLI token)
+5. The mainnet decision for proof 1
+
+---
+
 ## Open questions
 
 1. **Failure-destination addresses — RESOLVED for contracts** (per-pledge param, zero-guard only; burn = dEaD locked). Curated gitcoin/dao addresses remain a Phase 4 picker-config item: user supplies verified addresses, or a research prompt fetches them.
-2. **Magic + EIP-7702 signing path (Phase 3 gate).** Unverified; highest-risk unknown.
+2. **Magic + EIP-7702 signing path — RESOLVED.** First-class SDK method, doc-verified, Particle-listed. See Phase 3 section.
+2a. **UA proofs need keys + mainnet decision** — see Phase 3 "Blocked on user" list.
 3. **`SUPABASE_JWT_SECRET`** — not fetchable via this CLI version; grab from dashboard → Project Settings → API → JWT Settings before Phase 3 (needed to mint Supabase sessions from Magic auth).
 4. **Four missing frontend surfaces** (`/settle/:token`, leash claim, witness resolution, public pledge page) — net-new build in Phase 6.
 5. **Farcaster resolution: Hubble vs Neynar** — PRD Open Question #3.
@@ -86,6 +108,10 @@ Session-continuity log. Updated at every phase gate.
 ---
 
 ## Gotchas discovered
+
+- **Particle UA SDK ships types its `exports` map hides** — `dist/index.d.ts` exists but there's no `types` condition, so `moduleResolution: bundler` can't resolve it. Fixed with a tsconfig `paths` entry pointing at the .d.ts directly.
+- **magic-sdk v33 moved the address**: `MagicUserMetadata.publicAddress` is gone; use `info.wallets?.ethereum?.publicAddress`.
+- **wagmi is on v3 now** — stack pin says v2; installed wagmi@2.19.5 deliberately.
 
 - **Mutually-referencing RLS policies recurse.** `splits` select policy subqueried `split_members` and vice versa → Postgres "infinite recursion" → 500 on every splits operation. Fix: `security definer` helper functions (`is_split_organizer`, `is_split_member`) with pinned empty search_path, so policy subqueries don't re-enter RLS. Any future cross-table policy pair must use the same pattern.
 - **PostgREST returns 201 with an *empty* body** when no `Prefer: return=representation` is sent — `res.json()` throws. Guard every parse.
@@ -106,3 +132,4 @@ Session-continuity log. Updated at every phase gate.
 | Phase 0 | ✅ | ✅ | ✅ | 4 consecutive clean builds after OG-font retry fix |
 | Phase 1 | ✅ | ✅ | ✅ | migrations in lockstep local↔remote; RLS 29/29; DB left with zero rows |
 | Phase 2 | ✅ | ✅ | ✅ | contracts 52/52; deployed + verified on Arbitrum Sepolia; live reads confirmed |
+| Phase 3 (partial) | ✅ | ✅ | ✅ | SDK surfaces verified against installed types + official docs; proofs pending keys |
