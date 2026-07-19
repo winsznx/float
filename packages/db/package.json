@@ -2,7 +2,7 @@
   "name": "@float/db",
   "version": "0.1.0",
   "private": true,
-  "description": "FLOAT database — Supabase migrations, generated types, RLS verification",
+  "description": "FLOAT database \u2014 Supabase migrations, generated types, RLS verification",
   "type": "module",
   "exports": {
     ".": "./src/database.types.ts"
@@ -11,6 +11,10 @@
     "db:push": "supabase db push --linked",
     "db:diff": "supabase db diff --linked",
     "types:gen": "supabase gen types typescript --linked --schema public > src/database.types.ts",
-    "verify:rls": "node scripts/verify-rls.mjs"
+    "verify:rls": "node scripts/verify-rls.mjs",
+    "verify:session": "node scripts/verify-session-minting.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.7"
   }
 }
