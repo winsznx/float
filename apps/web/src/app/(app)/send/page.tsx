@@ -412,6 +412,7 @@ export default function SendPage() {
           <ConfirmationCard
             amount={amount}
             recipientLabel={recipientLabel}
+            recipientAddress={resolution.resolvedAddress}
             sourceChain={sourceChain}
             destinationChain={destinationChain}
             onConfirm={handleConfirm}

@@ -8,14 +8,25 @@ type IdentityInputProps = {
   onResolvedChange: (resolution: IdentityResolution | null) => void;
 };
 
-type Status = "idle" | "resolving" | "resolved" | "new" | "failed";
+type Status = "idle" | "resolving" | "resolved" | "new" | "notFound" | "failed";
 
-function isEmail(value: string): boolean {
-  return value.includes("@");
-}
+/**
+ * Where the address came from. Shown because "Found. @name" told the user
+ * nothing about *which* @name: a send to "@winsznx" resolved through Farcaster
+ * and paid that person's Farcaster wallet, while the FLOAT account the sender
+ * meant sat untouched. The source and the destination address have to be on
+ * screen before money moves.
+ */
+const SOURCE_LABEL: Record<IdentityResolution["type"], string> = {
+  float: "FLOAT account",
+  ens: "ENS",
+  farcaster: "Farcaster",
+  email: "Email",
+  address: "Address",
+};
 
-function isEns(value: string): boolean {
-  return value.toLowerCase().endsWith(".eth");
+function shortAddress(address: string): string {
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
 export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
@@ -29,7 +40,10 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
     return () => clearTimeout(timeout);
   }, [value]);
 
-  const shouldResolve = debounced !== "" && (isEmail(debounced) || isEns(debounced));
+  // Previously gated to emails and .eth names, so FLOAT handles, Farcaster
+  // handles and raw addresses never reached resolution at all — the recipient
+  // step simply never unlocked for them.
+  const shouldResolve = debounced.length >= 3;
   const isCurrent = shouldResolve && resolution?.input === debounced;
 
   useEffect(() => {
@@ -44,7 +58,10 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
       .then((result) => {
         if (cancelled) return;
         setResolution(result);
-        onResolvedChange(result);
+        // An unresolvable non-email has nowhere to send and no way to be
+        // claimed. Passing it on would write a send row that can never settle.
+        const sendable = !!result.resolvedAddress || result.type === "email";
+        onResolvedChange(sendable ? result : null);
       })
       .catch(() => {
         if (cancelled) return;
@@ -66,9 +83,11 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
       ? "failed"
       : !isCurrent
         ? "resolving"
-        : resolution!.type === "email"
-          ? "new"
-          : "resolved";
+        : resolution!.resolvedAddress
+          ? "resolved"
+          : resolution!.type === "email"
+            ? "new"
+            : "notFound";
 
   return (
     <div className="w-full">
@@ -85,7 +104,7 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
         autoComplete="off"
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        placeholder="name.eth, @handle, or email"
+        placeholder="@handle, name.eth, email, or address"
         className="mt-2 w-full rounded-md border-2 border-void bg-void-3 px-4 py-3 font-body text-[15px] text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
       />
 
@@ -101,8 +120,28 @@ export function IdentityInput({ onResolvedChange }: IdentityInputProps) {
         )}
 
         {status === "resolved" && resolution && (
-          <p className="font-body text-[13px] text-muted">
-            Found. {resolution.input} on {resolution.chains.join(" + ")}.
+          <div>
+            <p className="font-body text-[13px] text-text">
+              {SOURCE_LABEL[resolution.type]} · {resolution.input}
+            </p>
+            {resolution.resolvedAddress && (
+              <p className="mt-1 font-mono text-[11px] text-muted-2">
+                {shortAddress(resolution.resolvedAddress)}
+                {resolution.chains.length > 0 && ` · ${resolution.chains.join(" + ")}`}
+              </p>
+            )}
+            {resolution.type === "farcaster" && resolution.isNewUser && (
+              <p className="mt-2 font-body text-[12px] text-coral">
+                Not a FLOAT account. This pays their Farcaster wallet.
+              </p>
+            )}
+          </div>
+        )}
+
+        {status === "notFound" && (
+          <p role="alert" className="font-body text-[13px] text-coral">
+            No FLOAT account, ENS name, or Farcaster handle matches that. Try an
+            email and they&apos;ll get a claim link.
           </p>
         )}
 

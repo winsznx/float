@@ -12,6 +12,8 @@ function formatCurrency(value: number): string {
 type ConfirmationCardProps = {
   amount: number;
   recipientLabel: string;
+  /** Where the money actually lands. Null only for unclaimed email sends. */
+  recipientAddress: string | null;
   sourceChain: string;
   destinationChain: string;
   onConfirm: () => void;
@@ -21,6 +23,7 @@ type ConfirmationCardProps = {
 export function ConfirmationCard({
   amount,
   recipientLabel,
+  recipientAddress,
   sourceChain,
   destinationChain,
   onConfirm,
@@ -43,6 +46,12 @@ export function ConfirmationCard({
           </span>{" "}
           {recipientLabel}
         </p>
+        {/* The final screen before the money is irreversible showed only what
+            the sender typed, so a name that resolved somewhere unexpected
+            looked identical to one that resolved correctly. */}
+        {recipientAddress && (
+          <p className="font-mono text-[11px] text-muted-2">{recipientAddress}</p>
+        )}
         <p className="font-body text-[13px] text-text">
           <span className="font-mono text-muted uppercase tracking-wide">
             From
