@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import Link from "next/link";
 import { linkFetch } from "@/lib/api";
 import { giveWitnessVerdictOnChain } from "@/lib/settle";
 import { getErrorMessage } from "@/lib/errors";
@@ -175,6 +176,12 @@ export default function WitnessPage({ params }: { params: Promise<{ token: strin
           </div>
         )}
       </div>
+      <Link
+        href="/"
+        className="text-center font-mono text-[11px] text-muted-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+      >
+        FLOAT · skin in the game
+      </Link>
     </main>
   );
 }

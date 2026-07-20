@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmail } from "@/lib/auth";
@@ -67,6 +69,13 @@ export default function OnboardingEmailPage() {
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-20">
+      <Link
+        href="/"
+        aria-label="FLOAT home"
+        className="mb-8 font-display text-[20px] font-bold tracking-tight text-text transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+      >
+        FLOAT
+      </Link>
       <div className="w-full max-w-[420px] rounded-[22px] border-2 border-void bg-surface p-9 shadow-[7px_7px_0_0_var(--color-brut-line)]">
         <form onSubmit={handleSubmit} className="flex flex-col items-center text-center">
           <h1 className="font-display text-[26px] font-bold text-text">

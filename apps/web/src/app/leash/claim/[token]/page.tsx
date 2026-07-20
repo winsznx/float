@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import Link from "next/link";
 import { linkFetch } from "@/lib/api";
 import { spendFromLeashOnChain } from "@/lib/settle";
 import { ErrorNote } from "@/components/ErrorNote";
@@ -204,9 +205,12 @@ export default function LeashClaimPage({ params }: { params: Promise<{ token: st
         </button>
       </div>
 
-      <p className="text-center font-mono text-[11px] text-muted-2">
+      <Link
+        href="/"
+        className="text-center font-mono text-[11px] text-muted-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+      >
         FLOAT · their key, your rules
-      </p>
+      </Link>
     </main>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import Link from "next/link";
 import { linkFetch } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { ErrorNote } from "@/components/ErrorNote";
@@ -157,9 +158,12 @@ export default function ClaimPage({ params }: { params: Promise<{ token: string 
         )}
       </div>
 
-      <p className="text-center font-mono text-[11px] text-muted-2">
+      <Link
+        href="/"
+        className="text-center font-mono text-[11px] text-muted-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+      >
         FLOAT · your money, any chain
-      </p>
+      </Link>
     </main>
   );
 }

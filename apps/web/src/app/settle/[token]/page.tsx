@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import Link from "next/link";
 import { linkFetch } from "@/lib/api";
 import { settleShareOnChain } from "@/lib/settle";
 import { getErrorMessage } from "@/lib/errors";
@@ -173,9 +174,12 @@ export default function SettlePage({ params }: { params: Promise<{ token: string
         )}
       </div>
 
-      <p className="text-center font-mono text-[11px] text-muted-2">
+      <Link
+        href="/"
+        className="text-center font-mono text-[11px] text-muted-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+      >
         FLOAT · no wallet or app install needed
-      </p>
+      </Link>
     </main>
   );
 }
