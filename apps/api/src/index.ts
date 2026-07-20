@@ -5,6 +5,7 @@ import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import { appRouter, type AppRouter } from "./routers/index.js";
 import { createContext } from "./trpc.js";
 import { registerLinkRoutes } from "./rest/links.js";
+import { registerParticleProxy } from "./rest/particle.js";
 import { env } from "./lib/env.js";
 
 const app = Fastify({
@@ -69,6 +70,21 @@ await app.register(
     registerLinkRoutes(instance);
   },
   { prefix: "/link" }
+);
+
+// Particle's RPC, proxied. Building one transaction fans out into a burst of
+// calls, so this gets its own generous bucket — the app-wide 120/min would cut
+// off a legitimate send mid-flight.
+await app.register(
+  async (instance) => {
+    await instance.register(rateLimit, {
+      max: 600,
+      timeWindow: "1 minute",
+      keyGenerator: (req) => `particle:${req.ip}`,
+    });
+    registerParticleProxy(instance);
+  },
+  { prefix: "/particle" }
 );
 
 // The authenticated app.
