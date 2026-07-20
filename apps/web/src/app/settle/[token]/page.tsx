@@ -5,6 +5,7 @@ import Link from "next/link";
 import { linkFetch } from "@/lib/api";
 import { settleShareOnChain } from "@/lib/settle";
 import { getErrorMessage } from "@/lib/errors";
+import { MoneyMovedError } from "@/lib/money-moved";
 import { ErrorNote } from "@/components/ErrorNote";
 
 /**
@@ -43,6 +44,8 @@ export default function SettlePage({ params }: { params: Promise<{ token: string
   const [error, setError] = useState<string | null>(null);
   const [settling, setSettling] = useState<string | null>(null);
   const [email, setEmail] = useState("");
+  // Shares this browser paid for but the server never recorded.
+  const [paidLocally, setPaidLocally] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +82,12 @@ export default function SettlePage({ params }: { params: Promise<{ token: string
       setSplit(refreshed);
     } catch (caught) {
       setError(getErrorMessage(caught));
+      // Paid, but the server never recorded it — so a refresh would still show
+      // the share as outstanding. Mark it locally so this member is not invited
+      // to pay for the same share twice.
+      if (caught instanceof MoneyMovedError) {
+        setPaidLocally((prev) => new Set(prev).add(memberId));
+      }
     } finally {
       setSettling(null);
     }
@@ -103,7 +112,9 @@ export default function SettlePage({ params }: { params: Promise<{ token: string
     );
   }
 
-  const outstanding = split.split_members.filter((m) => !m.settled);
+  const outstanding = split.split_members.filter(
+    (m) => !m.settled && !paidLocally.has(m.id)
+  );
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-6 px-6 py-16">
@@ -126,7 +137,7 @@ export default function SettlePage({ params }: { params: Promise<{ token: string
                 <span className="font-body text-sm text-muted">
                   {formatCurrency(member.share_amount)}
                 </span>
-                {member.settled ? (
+                {member.settled || paidLocally.has(member.id) ? (
                   <span className="flex items-center gap-1.5 font-body text-[12px] text-text">
                     <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-mint" />
                     Settled

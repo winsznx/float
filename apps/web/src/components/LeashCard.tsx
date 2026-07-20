@@ -27,6 +27,24 @@ function formatExpiry(value: string): string {
   }).format(new Date(`${value}T00:00:00`));
 }
 
+/**
+ * A leash bar that is mint at 5% and mint at 96% tells the owner nothing about
+ * authority they are about to run out of. Thresholds are the PRD's: warn from
+ * 80%, urgent from 95%.
+ *
+ * The palette has no amber or red, so the ramp runs mint → lav → coral. Coral
+ * is the same colour every destructive and at-risk state in the app already
+ * uses, which is what makes the top of the bar read as urgent.
+ */
+const USAGE_WARN = 0.8;
+const USAGE_URGENT = 0.95;
+
+function usageFill(ratio: number): string {
+  if (ratio >= USAGE_URGENT) return "bg-coral";
+  if (ratio >= USAGE_WARN) return "bg-lav";
+  return "bg-mint";
+}
+
 export function LeashCard({
   beneficiaryLabel,
   spendLimit,
@@ -63,8 +81,13 @@ export function LeashCard({
         </p>
         <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full border-2 border-void bg-void-3">
           <div
-            className="h-full rounded-full bg-mint transition-[width] duration-300 ease-out"
+            className={`h-full rounded-full transition-[width] duration-300 ease-out ${usageFill(ratio)}`}
             style={{ width: `${percent}%` }}
+            role="progressbar"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${formatCurrency(used)} of ${formatCurrency(spendLimit)} used`}
           />
         </div>
         <p className="mt-1 text-right font-mono text-[11px] text-muted-2">

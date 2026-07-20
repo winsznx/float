@@ -9,6 +9,14 @@ import { FAILURE_DESTINATIONS, resolveDestination } from "../lib/destinations.js
 import { env } from "../lib/env.js";
 import { getErrorMessage } from "../lib/errors.js";
 
+/**
+ * The public accountability card at /pledge/:id is served only for pledges
+ * marked public, so a private pledge gets no link rather than one that 404s.
+ */
+function publicShareUrl(id: string, isPublic: boolean): string | null {
+  return isPublic ? `${env.webOrigin}/pledge/${id}` : null;
+}
+
 export const pledgeRouter = router({
   /** Curated failure destinations, with the addresses the contract will use. */
   destinations: publicProcedure.query(() => FAILURE_DESTINATIONS),
@@ -111,7 +119,11 @@ export const pledgeRouter = router({
         }
       }
 
-      return { ...data, witnessUrl: `${env.webOrigin}/witness/${data.witness_token}` };
+      return {
+        ...data,
+        witnessUrl: `${env.webOrigin}/witness/${data.witness_token}`,
+        shareUrl: publicShareUrl(data.id, data.is_public),
+      };
     }),
 
   get: protectedProcedure
@@ -123,7 +135,7 @@ export const pledgeRouter = router({
         .eq("id", input.id)
         .single();
       if (error) throw new TRPCError({ code: "NOT_FOUND", message: error.message });
-      return data;
+      return { ...data, shareUrl: publicShareUrl(data.id, data.is_public) };
     }),
 
   list: protectedProcedure.query(async ({ ctx }) => {

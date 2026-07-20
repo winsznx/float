@@ -25,6 +25,17 @@ export function AmountInput({
     }
   }
 
+  /**
+   * MAX used to pass the balance through verbatim, bypassing the two-decimal
+   * guard that typing goes through. Balances are live floats, so it produced
+   * amounts like 7.3126482 — the confirmation card rounded that to "$7.31"
+   * while the transfer submitted every digit. Floored, not rounded, so MAX can
+   * never ask for more than is actually there.
+   */
+  function selectMax(max: number) {
+    onChange((Math.floor(max * 100) / 100).toFixed(2));
+  }
+
   return (
     <div className="flex w-full flex-col items-center">
       <div className="flex items-baseline gap-1">
@@ -57,7 +68,7 @@ export function AmountInput({
           {maxAmount !== undefined && (
             <button
               type="button"
-              onClick={() => onChange(String(maxAmount))}
+              onClick={() => selectMax(maxAmount)}
               className="rounded-full border-2 border-void bg-surface px-4 py-2 font-body text-sm font-medium text-text shadow-[3px_3px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
             >
               MAX

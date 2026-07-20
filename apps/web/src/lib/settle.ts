@@ -1,7 +1,14 @@
 "use client";
 
 import { linkFetch } from "@/lib/api";
-import { createUniversalAccount, createUsdcTransfer } from "@/lib/chain/universal-account";
+import { recordAfterTransfer } from "@/lib/money-moved";
+import {
+  createUniversalAccount,
+  createUsdcTransfer,
+  destinationChainFor,
+  type DestinationChain,
+} from "@/lib/chain/universal-account";
+import { resolveIdentity } from "@/lib/identity";
 import { resolvePledgeOnChain, spendLeashOnChain } from "@/lib/chain/contracts";
 import { signUniversalTransaction, ensureDelegated } from "@/lib/chain/signer";
 import { loginWithEmailOtp, getWalletAddress, isLoggedIn } from "@/lib/chain/magic";
@@ -24,9 +31,27 @@ async function ensureWallet(email?: string): Promise<string> {
 }
 
 /**
+ * Which chain to pay an organizer on, resolved from where they actually hold
+ * value — identity.resolve is a public procedure, so this works from a
+ * capability link with no session.
+ *
+ * A failure here falls back to the default destination rather than propagating:
+ * settling on a less convenient chain beats not settling at all.
+ */
+async function organizerDestination(address: string): Promise<DestinationChain> {
+  try {
+    const { preferredChain } = await resolveIdentity(address);
+    return destinationChainFor(preferredChain);
+  } catch {
+    return destinationChainFor(null);
+  }
+}
+
+/**
  * Settles one member's share: a real cross-chain USDC transfer to the
- * organizer, sourced from whatever the member holds. The tx hash is required
- * by the API, so nothing is marked paid without one.
+ * organizer, sourced from whatever the member holds and delivered on the
+ * organizer's own chain. The tx hash is required by the API, so nothing is
+ * marked paid without one.
  */
 export async function settleShareOnChain(params: {
   shareToken: string;
@@ -39,7 +64,13 @@ export async function settleShareOnChain(params: {
 
   await ensureDelegated(address);
   const ua = createUniversalAccount(address);
-  const tx = await createUsdcTransfer(ua, params.organizerAddress, String(params.amount));
+  const destination = await organizerDestination(params.organizerAddress);
+  const tx = await createUsdcTransfer(
+    ua,
+    params.organizerAddress,
+    String(params.amount),
+    destination.id
+  );
   const { rootSignature, authorizations } = await signUniversalTransaction(address, tx);
 
   const result = await ua.sendTransaction(
@@ -49,10 +80,15 @@ export async function settleShareOnChain(params: {
   );
   const txHash = result?.transactionId ?? tx.transactionId;
 
-  await linkFetch(`/settle/${params.shareToken}`, {
-    method: "POST",
-    body: { memberId: params.memberId, txHash },
-  });
+  // The share is paid the moment the transfer lands. If marking it settled
+  // fails, the caller must not re-offer "Settle" on a share that has already
+  // been paid for.
+  await recordAfterTransfer(txHash, () =>
+    linkFetch(`/settle/${params.shareToken}`, {
+      method: "POST",
+      body: { memberId: params.memberId, txHash },
+    })
+  );
 
   return { txHash };
 }

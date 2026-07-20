@@ -9,16 +9,25 @@ import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { ConfirmationCard } from "@/components/ConfirmationCard";
 import { ErrorNote } from "@/components/ErrorNote";
-import { sendPayment } from "@/lib/send";
+import { sendPayment, quoteSend } from "@/lib/send";
 import { downloadReceiptImage } from "@/lib/receipt-image";
 import { getErrorMessage } from "@/lib/errors";
+import { MoneyMovedError } from "@/lib/money-moved";
 import { getBalance, type UnifiedBalance } from "@/lib/balance";
+import { destinationChainFor } from "@/lib/chain/universal-account";
 import type { IdentityResolution } from "@/lib/identity";
-import type { SendReceipt } from "@/lib/send";
+import type { SendReceipt, SendQuote } from "@/lib/send";
 
 const NOTE_LIMIT = 140;
 
-type Step = "recipient" | "amount" | "note" | "confirm" | "sending" | "success";
+type Step =
+  | "recipient"
+  | "amount"
+  | "note"
+  | "confirm"
+  | "sending"
+  | "success"
+  | "unrecorded";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -292,8 +301,11 @@ export default function SendPage() {
   const [amountValue, setAmountValue] = useState("");
   const [note, setNote] = useState("");
   const [receipt, setReceipt] = useState<SendReceipt | null>(null);
+  const [sentTxId, setSentTxId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [balance, setBalance] = useState<UnifiedBalance | null>(null);
+  const [quote, setQuote] = useState<SendQuote | null>(null);
+  const [quoting, setQuoting] = useState(false);
 
   // MAX and the source chain come from the user's real holdings. These were
   // hardcoded to $1,247.83 and "Base", so MAX offered money that wasn't there
@@ -315,13 +327,46 @@ export default function SendPage() {
 
   const amount = Number(amountValue) || 0;
   const recipientLabel = resolution?.input ?? "";
-  const sourceChain = balance?.chains[0]?.chain ?? "your balance";
-  const destinationChain = resolution?.preferredChain || sourceChain;
+  // Prefer the route the quote actually uses; the largest-balance chain is
+  // only a guess, and naming a chain the route never touches is the same
+  // class of bug as the destination label that used to drift.
+  const sourceChain =
+    quote?.sourceChain ?? balance?.chains[0]?.chain ?? "your balance";
+  // The chain the transfer is actually built for, not the recipient's raw
+  // preference: FLOAT can only deliver USDC to chains it has a contract for,
+  // and naming one it falls back from is how the card came to promise Base on
+  // a transfer that settled on Arbitrum.
+  const destinationChain = destinationChainFor(resolution?.preferredChain).label;
 
   const handleResolvedChange = useCallback(
     (next: IdentityResolution | null) => setResolution(next),
     []
   );
+
+  /**
+   * Reaching the confirmation screen is a click, so the quote is fetched here
+   * rather than in an effect keyed on the step.
+   *
+   * A quote that fails leaves the card with no cost line at all. That is the
+   * point: the previous behaviour was to state a sponsorship and an ETA
+   * unconditionally, and showing nothing is better than showing a guess.
+   */
+  async function handleReviewSend() {
+    setStep("confirm");
+    setError(null);
+    setQuote(null);
+
+    if (!resolution?.resolvedAddress) return;
+
+    setQuoting(true);
+    try {
+      setQuote(await quoteSend({ recipient: resolution, amount }));
+    } catch {
+      setQuote(null);
+    } finally {
+      setQuoting(false);
+    }
+  }
 
   async function handleConfirm() {
     if (!resolution) return;
@@ -332,9 +377,17 @@ export default function SendPage() {
       setReceipt(result);
       setStep("success");
     } catch (caught) {
-      // Returning to confirm keeps the entered amount, note, and recipient so
-      // a declined signature or failed route can be retried without re-entry.
       setError(getErrorMessage(caught));
+      // Only a failure that moved no money returns to confirm. Re-arming the
+      // button after the transfer landed is what turned a dropped connection
+      // into a second, real payment.
+      if (caught instanceof MoneyMovedError) {
+        setSentTxId(caught.txHash);
+        setStep("unrecorded");
+        return;
+      }
+      // Keeps the entered amount, note, and recipient so a declined signature
+      // or failed route can be retried without re-entry.
       setStep("confirm");
     }
   }
@@ -400,9 +453,7 @@ export default function SendPage() {
               {note.length}/{NOTE_LIMIT}
             </p>
           )}
-          <PrimaryButton onClick={() => setStep("confirm")}>
-            Continue
-          </PrimaryButton>
+          <PrimaryButton onClick={handleReviewSend}>Continue</PrimaryButton>
         </StepCard>
       )}
 
@@ -415,6 +466,8 @@ export default function SendPage() {
             recipientAddress={resolution.resolvedAddress}
             sourceChain={sourceChain}
             destinationChain={destinationChain}
+            quote={quote}
+            quoting={quoting}
             onConfirm={handleConfirm}
             confirming={false}
           />
@@ -429,6 +482,32 @@ export default function SendPage() {
           recipientLabel={recipientLabel}
           receipt={receipt}
         />
+      )}
+
+      {/* Terminal on purpose. The money is gone from the sender's balance, so
+          the one thing this screen must never offer is another send. */}
+      {step === "unrecorded" && (
+        <StepCard>
+          <p className="font-display text-[20px] font-bold text-text">
+            Sent — but not saved
+          </p>
+          <p className="mt-3 font-body text-[14px] text-muted">
+            {formatCurrency(amount)} reached {recipientLabel}. We couldn&apos;t
+            write it to your history, so it won&apos;t appear there. Nothing was
+            lost.
+          </p>
+          {sentTxId && (
+            <p className="mt-4 font-mono text-[12px] text-muted-2 break-all">
+              {sentTxId}
+            </p>
+          )}
+          <Link
+            href="/home"
+            className="mt-8 block w-full rounded-full border-2 border-void bg-coral px-6 py-4 text-center font-body text-[15px] font-semibold text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
+          >
+            Done
+          </Link>
+        </StepCard>
       )}
     </div>
   );

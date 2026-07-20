@@ -10,9 +10,10 @@ import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { PledgeCard } from "@/components/PledgeCard";
 import { ErrorNote } from "@/components/ErrorNote";
-import { createPledge, getFailureDestinations } from "@/lib/pledge";
+import { createPledge, getFailureDestinations, isPledgeAtRisk } from "@/lib/pledge";
 import type { FailureDestination } from "@/lib/pledge";
 import { getErrorMessage } from "@/lib/errors";
+import { MoneyMovedError } from "@/lib/money-moved";
 import type { IdentityResolution } from "@/lib/identity";
 import type { Pledge } from "@/lib/pledge";
 
@@ -25,7 +26,8 @@ type Step =
   | "public"
   | "review"
   | "locking"
-  | "locked";
+  | "locked"
+  | "unrecorded";
 
 const GOAL_LIMIT = 200;
 
@@ -215,9 +217,16 @@ export default function PledgePage() {
       setPledge(result);
       setStep("locked");
     } catch (caught) {
+      setError(getErrorMessage(caught));
+      // PledgeVault mints from an incrementing nonce, so a second Confirm
+      // locks a second stake rather than reverting. Once the stake is on-chain
+      // this screen must stop offering to lock it.
+      if (caught instanceof MoneyMovedError) {
+        setStep("unrecorded");
+        return;
+      }
       // Back to review with the goal, stake, witness, and destination intact —
       // nothing is locked until the contract call succeeds.
-      setError(getErrorMessage(caught));
       setStep("review");
     } finally {
       setCreating(false);
@@ -455,8 +464,8 @@ export default function PledgePage() {
             failureLabel={pledge.failureDestinationLabel}
             deadline={pledge.deadline}
             status="locked"
-            // TODO: wire real public share card generation once that surface exists (see PRD Pledge public share card).
-            shareLink={`float.app/pledge/${pledge.pledgeId}`}
+            isAtRisk={isPledgeAtRisk(pledge.deadline, pledge.status)}
+            shareLink={pledge.shareUrl ?? undefined}
           />
           <Link
             href="/home"
@@ -465,6 +474,27 @@ export default function PledgePage() {
             Done
           </Link>
         </div>
+      )}
+
+      {/* Terminal on purpose: the stake is escrowed in PledgeVault, and a
+          second Confirm would lock another one. */}
+      {step === "unrecorded" && (
+        <StepCard>
+          <p className="font-display text-[20px] font-bold text-text">
+            Locked — but not saved
+          </p>
+          <p className="mt-3 font-body text-[14px] text-muted">
+            Your stake is locked on-chain. We couldn&apos;t write the pledge to
+            your account, so it won&apos;t appear in your list. Don&apos;t lock
+            it again — that would stake a second time.
+          </p>
+          <Link
+            href="/home"
+            className="mt-8 block w-full rounded-full border-2 border-void bg-signal px-6 py-4 text-center font-body text-[15px] font-semibold text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
+          >
+            Done
+          </Link>
+        </StepCard>
       )}
     </div>
   );

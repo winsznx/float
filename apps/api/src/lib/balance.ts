@@ -31,7 +31,8 @@ const CHAIN_LABELS: Record<number, string> = {
   101: "Solana",
 };
 
-function accountFor(ownerAddress: string): UniversalAccount {
+/** Shared by the transaction-status seam, which reads the same live UA state. */
+export function accountFor(ownerAddress: string): UniversalAccount {
   return new UniversalAccount({
     projectId: env.particleProjectId,
     projectClientKey: env.particleClientKey,

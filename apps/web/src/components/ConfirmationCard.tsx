@@ -1,5 +1,7 @@
 "use client";
 
+import type { SendQuote } from "@/lib/send";
+
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -16,6 +18,9 @@ type ConfirmationCardProps = {
   recipientAddress: string | null;
   sourceChain: string;
   destinationChain: string;
+  /** Particle's quote for this exact transfer. Null when there is none to show. */
+  quote: SendQuote | null;
+  quoting: boolean;
   onConfirm: () => void;
   confirming: boolean;
 };
@@ -26,6 +31,8 @@ export function ConfirmationCard({
   recipientAddress,
   sourceChain,
   destinationChain,
+  quote,
+  quoting,
   onConfirm,
   confirming,
 }: ConfirmationCardProps) {
@@ -60,13 +67,30 @@ export function ConfirmationCard({
         </p>
       </div>
 
-      <div className="mt-6 flex flex-col gap-1">
-        <p className="font-mono text-[13px] text-muted-2">
-          Gas: $0.00 (sponsored)
-        </p>
-        <p className="font-mono text-[13px] text-muted-2">
-          Estimated: ~8 seconds
-        </p>
+      {/* Gas and cost come from the quote Particle returned for this exact
+          transfer. They were previously two literal strings — a sponsorship
+          claim and an "~8 seconds" estimate — printed on the last screen before
+          the money is irreversible, neither of which anything checked. There is
+          no time estimate in the quote, so none is shown. */}
+      <div className="mt-6 flex flex-col gap-1" aria-live="polite">
+        {quoting && (
+          <p className="font-mono text-[13px] text-muted-2">Checking the route</p>
+        )}
+        {!quoting && quote && (
+          <>
+            <p className="font-mono text-[13px] text-muted-2">
+              Gas:{" "}
+              {quote.gasSponsored
+                ? "$0.00 (sponsored)"
+                : "paid from your balance"}
+            </p>
+            {quote.totalFeeUsd > 0 && (
+              <p className="font-mono text-[13px] text-muted-2">
+                Route fee: {formatCurrency(quote.totalFeeUsd)}
+              </p>
+            )}
+          </>
+        )}
       </div>
 
       <button

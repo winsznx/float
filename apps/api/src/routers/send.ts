@@ -2,20 +2,84 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../trpc.js";
 import { resolveIdentity } from "../lib/identity.js";
-import { serviceDb } from "../lib/supabase.js";
+import { serviceDb, type Db } from "../lib/supabase.js";
+import { fetchSendStatus } from "../lib/transaction-status.js";
+import type { Database } from "@float/db";
 import { notifyClaim } from "../lib/notify.js";
 import { getErrorMessage } from "../lib/errors.js";
 import { randomBytes } from "node:crypto";
 
-const ARBITRUM_ONE = 42161;
-// Resolution returns display labels; the schema stores numeric chain ids.
-const CHAIN_IDS: Record<string, number> = {
-  Ethereum: 1,
-  "BNB Chain": 56,
-  Base: 8453,
-  Arbitrum: ARBITRUM_ONE,
-  "X Layer": 196,
-};
+// Chains the Universal Account routes. The client reports which of these a
+// transfer actually used; anything else is a client that has drifted from the
+// SDK's supported set and must not be written to the ledger.
+const SUPPORTED_CHAIN_IDS: number[] = [1, 56, 196, 8453, 42161];
+
+const chainId = z
+  .number()
+  .int()
+  .refine((id) => SUPPORTED_CHAIN_IDS.includes(id), { message: "Unsupported chain id." });
+
+/** Rows reconciled per list call. Bounded so history stays a cheap read. */
+const RECONCILE_LIMIT = 10;
+
+type SendRow = Database["public"]["Tables"]["sends"]["Row"];
+
+/**
+ * Resolves sends that are still in flight against Particle, then returns the
+ * rows as they now stand.
+ *
+ * Nothing else does this. `create` writes `submitted` and the indexer — which
+ * only watches LeashManager and PledgeVault — never touches the sends table, so
+ * before this every send stayed `submitted` forever while the history rendered
+ * a `confirmed` state that was unreachable.
+ *
+ * Failures are swallowed per row on purpose: a Particle outage should degrade
+ * this to "status not updated yet", never take down the history list.
+ */
+async function reconcileSubmitted(
+  db: Db,
+  userId: string,
+  ownerAddress: string | null,
+  rows: SendRow[]
+): Promise<SendRow[]> {
+  if (!ownerAddress) return rows;
+
+  const pending = rows
+    .flatMap((row) =>
+      row.status === "submitted" && row.tx_hash
+        ? [{ id: row.id, txHash: row.tx_hash }]
+        : []
+    )
+    .slice(0, RECONCILE_LIMIT);
+  if (pending.length === 0) return rows;
+
+  const resolved = await Promise.all(
+    pending.map(async ({ id, txHash }) => {
+      try {
+        const status = await fetchSendStatus(ownerAddress, txHash);
+        return status && status !== "submitted" ? { id, status } : null;
+      } catch (caught) {
+        console.error("send status refresh failed", id, getErrorMessage(caught));
+        return null;
+      }
+    })
+  );
+
+  const changes = resolved.filter((change) => change !== null);
+  if (changes.length === 0) return rows;
+
+  await Promise.all(
+    changes.map(({ id, status }) =>
+      db.from("sends").update({ status }).eq("id", id).eq("sender_id", userId)
+    )
+  );
+
+  const byId = new Map(changes.map((change) => [change.id, change.status]));
+  return rows.map((row) => {
+    const status = byId.get(row.id);
+    return status ? { ...row, status } : row;
+  });
+}
 
 export const sendRouter = router({
   /**
@@ -33,7 +97,8 @@ export const sendRouter = router({
         amount: z.number().positive().max(1_000_000),
         note: z.string().max(140).optional(),
         txHash: z.string().regex(/^0x[a-fA-F0-9]+$/).optional(),
-        sourceChainId: z.number().int().optional(),
+        sourceChainId: chainId.optional(),
+        destChainId: chainId.optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -70,8 +135,14 @@ export const sendRouter = router({
           recipient_type: resolution.type,
           amount: input.amount,
           token: "USDC",
+          // Both come from the route the client actually built and submitted,
+          // reported back off ITransaction.tokenChanges. dest_chain_id used to
+          // be derived here from resolution.preferredChain — a preference the
+          // transfer never honoured — so every row claimed a destination the
+          // money had not gone to. A send with no transfer (claim link) has no
+          // chains, and null is the honest value for that.
           source_chain_id: input.sourceChainId ?? null,
-          dest_chain_id: CHAIN_IDS[resolution.preferredChain] ?? ARBITRUM_ONE,
+          dest_chain_id: input.destChainId ?? null,
           // Schema allows pending|submitted|confirmed|failed. A row without a
           // hash is still pending; only the indexer moves it to confirmed.
           status: input.txHash ? "submitted" : "pending",
@@ -160,6 +231,7 @@ export const sendRouter = router({
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-    return data;
+
+    return reconcileSubmitted(ctx.db, ctx.userId, ctx.address, data);
   }),
 });

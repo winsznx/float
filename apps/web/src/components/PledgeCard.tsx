@@ -65,12 +65,19 @@ export function PledgeCard({
         <p className="font-mono text-xs uppercase tracking-wide text-muted">
           Pledge
         </p>
-        {status === "locked" && (
-          <span className="flex items-center gap-1.5 font-body text-[11px] uppercase tracking-wide text-signal">
-            Locked
-            <Lock aria-hidden="true" size={12} />
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {isAtRisk && (
+            <span className="rounded-full border-2 border-void bg-coral px-2.5 py-0.5 font-body text-[11px] font-semibold uppercase tracking-wide text-void shadow-[2px_2px_0_0_var(--color-brut-line)]">
+              At risk
+            </span>
+          )}
+          {status === "locked" && (
+            <span className="flex items-center gap-1.5 font-body text-[11px] uppercase tracking-wide text-signal">
+              Locked
+              <Lock aria-hidden="true" size={12} />
+            </span>
+          )}
+        </div>
       </div>
 
       <p className="mt-4 font-body text-[15px] italic text-text">
@@ -85,7 +92,9 @@ export function PledgeCard({
         Failure to {failureLabel || "no destination set"}
       </p>
 
-      <p className="mt-4 font-mono text-xs text-muted-2">
+      <p
+        className={`mt-4 font-mono text-xs ${isAtRisk ? "text-coral" : "text-muted-2"}`}
+      >
         Witness: {witnessLabel || "none"} &middot; Due {formatDeadline(deadline)}
       </p>
 

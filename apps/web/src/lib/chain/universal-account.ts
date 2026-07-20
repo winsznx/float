@@ -2,7 +2,9 @@ import {
   UniversalAccount,
   type EIP7702Authorization,
   type IAssetsResponse,
+  type ITokenChanges,
   type ITransaction,
+  type ITransactionFees,
 } from "@particle-network/universal-account-sdk";
 import { serializeSignature, numberToHex } from "viem";
 import type { Sign7702AuthorizationResponse } from "@magic-sdk/types";
@@ -14,6 +16,11 @@ import { particleConfig, particleRpcUrl } from "@/lib/chain/config";
 //     smartAccountOptions: {ownerAddress, useEIP7702}})
 //   getPrimaryAssets() → {assets, totalAmountInUSD}
 //   createTransferTransaction({token, amount, receiver}) → ITransaction
+//     ⚠ `token` is the DESTINATION — the chain and contract the receiver ends
+//     up holding. Liquidity is sourced from the unified balance regardless.
+//     Hardcoding it to Arbitrum is what made every "to Base" send land on
+//     Arbitrum; ITransaction.tokenChanges.{fromChains,toChains} is the quote's
+//     own account of what the route does.
 //   getEIP7702Auth(chainIds) → auth tuples to sign
 //   sendTransaction(tx, rootHashSignature, authorizations?: {userOpHash, signature}[])
 //
@@ -99,24 +106,128 @@ export async function getUnifiedBalance(ua: UniversalAccount): Promise<UnifiedBa
   };
 }
 
-/** USDC on Arbitrum One — FLOAT's settlement target for sends. */
-const ARBITRUM_USDC = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831";
+/**
+ * Native USDC per chain. ITransferTransaction.token names what the *receiver*
+ * gets, so this map is the set of chains FLOAT can deliver to — a chain absent
+ * here cannot be a destination no matter what the recipient prefers.
+ *
+ * Deliberately narrower than CHAIN_IDS: Particle also routes BNB Chain, X Layer
+ * and Solana, but their USDC is a bridged or non-EVM representation and naming
+ * the wrong contract would send real money to an address that isn't USDC.
+ */
+const USDC_BY_CHAIN: Record<number, string> = {
+  [CHAIN_IDS.ETHEREUM]: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  [CHAIN_IDS.BASE]: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  [CHAIN_IDS.ARBITRUM]: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+};
+
+/** Where a transfer lands when the recipient prefers a chain FLOAT can't deliver to. */
+export const DEFAULT_DEST_CHAIN_ID: number = CHAIN_IDS.ARBITRUM;
+
+const CHAIN_IDS_BY_LABEL: Record<string, number> = Object.fromEntries(
+  Object.entries(CHAIN_LABELS).map(([id, label]) => [label, Number(id)])
+);
+
+export type DestinationChain = {
+  id: number;
+  label: string;
+};
+
+/**
+ * Resolves a recipient's preferred chain label into the chain the transfer will
+ * actually settle on.
+ *
+ * The confirmation card and the transaction builder both read this, and that is
+ * the point: they used to decide separately, so the UI could promise "Arbitrum
+ * to Base" while createTransferTransaction was hardcoded to Arbitrum and the
+ * money landed there. One resolver means the label cannot drift from the money
+ * again.
+ */
+/** Display name for a chain id the SDK reported. */
+export function chainLabelFor(id: number): string {
+  return CHAIN_LABELS[id] ?? `Chain ${id}`;
+}
+
+export function destinationChainFor(preferredChain?: string | null): DestinationChain {
+  const preferredId = preferredChain ? CHAIN_IDS_BY_LABEL[preferredChain] : undefined;
+  const id =
+    preferredId !== undefined && preferredId in USDC_BY_CHAIN
+      ? preferredId
+      : DEFAULT_DEST_CHAIN_ID;
+  return { id, label: CHAIN_LABELS[id] };
+}
 
 /**
  * Build a cross-chain USDC transfer: sourced from whatever the sender holds
- * anywhere, delivered as USDC on Arbitrum to `receiver`. Amount in display
- * units ("50" = $50) — the SDK's ITransferTransaction takes decimal strings.
+ * anywhere, delivered as USDC on `destinationChainId` to `receiver`. Amount in
+ * display units ("50" = $50) — the SDK's ITransferTransaction takes decimal
+ * strings.
  */
 export async function createUsdcTransfer(
   ua: UniversalAccount,
   receiver: string,
-  amount: string
+  amount: string,
+  destinationChainId: number = DEFAULT_DEST_CHAIN_ID
 ): Promise<ITransaction> {
+  const address = USDC_BY_CHAIN[destinationChainId];
+  if (!address) {
+    throw new Error(
+      `FLOAT cannot deliver USDC on chain ${destinationChainId}. Use destinationChainFor().`
+    );
+  }
   return ua.createTransferTransaction({
-    token: { chainId: CHAIN_IDS.ARBITRUM, address: ARBITRUM_USDC },
+    token: { chainId: destinationChainId, address },
     amount,
     receiver,
   });
+}
+
+export type TransferQuote = {
+  /** Particle's answer, not ours: does this route charge the sender for gas? */
+  gasSponsored: boolean;
+  /** Total quoted route cost in USD — gas, service and LP fees together. */
+  totalFeeUsd: number;
+};
+
+/**
+ * The cost of a built transfer, read off the quote Particle returned.
+ *
+ * The confirmation card used to print "Gas: $0.00 (sponsored)" as a literal on
+ * the last screen before irreversible movement. Sponsorship is a property of
+ * the route, and the route says so itself — `freeGasFee` is the field that
+ * decides it.
+ */
+export function quoteOf(tx: ITransaction): TransferQuote {
+  const fees: ITransactionFees | undefined = tx.transactionFees;
+  const changes: ITokenChanges | undefined = tx.tokenChanges;
+  const total = Number(changes?.totalFeeInUSD ?? 0);
+  return {
+    gasSponsored: fees?.freeGasFee ?? false,
+    totalFeeUsd: Number.isFinite(total) ? total : 0,
+  };
+}
+
+export type ExecutedChains = {
+  /** Null when the route draws on more than one chain: the column holds one id. */
+  sourceChainId: number | null;
+  destChainId: number | null;
+};
+
+/**
+ * What the built transaction actually moves, per Particle's own quote, rather
+ * than what we asked for. This is what gets persisted — a route that settles
+ * somewhere other than requested should be recorded as it happened.
+ */
+export function executedChains(tx: ITransaction): ExecutedChains {
+  const changes: ITokenChanges | undefined = tx.tokenChanges;
+  if (!changes) return { sourceChainId: null, destChainId: null };
+
+  const from = changes.fromChains ?? [];
+  const to = changes.toChains ?? [];
+  return {
+    sourceChainId: from.length === 1 ? from[0] : null,
+    destChainId: to.length > 0 ? to[0] : null,
+  };
 }
 
 /**
