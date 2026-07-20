@@ -44,7 +44,7 @@ Seven async functions. Every one currently returns a hardcoded value after a `se
 // lib/identity.ts — consumed by IdentityInput, and by send/split/leash/pledge pages
 type IdentityResolution = {
   input: string;                                       // raw user entry, echoed in UI
-  type: "ens" | "farcaster" | "email" | "address";
+  type: "float" | "ens" | "farcaster" | "email" | "address";  // float wins over farcaster
   resolvedAddress: string | null;
   chains: string[];                                    // display strings e.g. ["Base","Arbitrum"]
   preferredChain: string;                              // display string e.g. "Arbitrum"

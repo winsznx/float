@@ -45,10 +45,26 @@ export const sendRouter = router({
       const needsClaim = !resolution.resolvedAddress;
       const claimToken = needsClaim ? randomBytes(16).toString("hex") : null;
 
+      // Link the recipient's FLOAT account when the address belongs to one.
+      // This was never set, so recipient_user_id was always null: a send to an
+      // existing user produced no "received" activity and no notification, and
+      // the money arrived with nothing in the app to show for it. Keyed on the
+      // resolved address so it works for every recipient type, not just handles.
+      const recipientUserId = resolution.resolvedAddress
+        ? (
+            await serviceDb()
+              .from("users")
+              .select("id")
+              .eq("address", resolution.resolvedAddress.toLowerCase())
+              .maybeSingle()
+          ).data?.id ?? null
+        : null;
+
       const { data, error } = await ctx.db
         .from("sends")
         .insert({
           sender_id: ctx.userId,
+          recipient_user_id: recipientUserId,
           recipient_address: resolution.resolvedAddress?.toLowerCase() ?? null,
           recipient_input: resolution.input,
           recipient_type: resolution.type,
@@ -82,6 +98,21 @@ export const sendRouter = router({
         // The feed is the only record that this happened; a silent failure here
         // is how a write disappears from the home screen.
         console.error("activity insert failed", activityError.message);
+      }
+
+      // The recipient's side of the same event. Without it a FLOAT user could
+      // receive money and see nothing at all in the app — the send_received
+      // label existed in the feed's copy but nothing ever wrote the row.
+      if (recipientUserId) {
+        const { error: receivedError } = await serviceDb().from("activity").insert({
+          user_id: recipientUserId,
+          type: "send_received",
+          ref_type: "send",
+          ref_id: data.id,
+        });
+        if (receivedError) {
+          console.error("recipient activity insert failed", receivedError.message);
+        }
       }
 
       // A recipient with no FLOAT account gets a claim link rather than funds

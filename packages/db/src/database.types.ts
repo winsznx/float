@@ -363,6 +363,7 @@ export type Database = {
           recipient_type: string
           recipient_user_id: string | null
           sender_id: string
+          share_token: string
           source_chain_id: number | null
           status: string
           token: string
@@ -382,6 +383,7 @@ export type Database = {
           recipient_type: string
           recipient_user_id?: string | null
           sender_id: string
+          share_token?: string
           source_chain_id?: number | null
           status?: string
           token?: string
@@ -401,6 +403,7 @@ export type Database = {
           recipient_type?: string
           recipient_user_id?: string | null
           sender_id?: string
+          share_token?: string
           source_chain_id?: number | null
           status?: string
           token?: string

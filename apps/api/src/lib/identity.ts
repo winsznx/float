@@ -12,7 +12,7 @@ import { chainsHoldingValue } from "./balance.js";
  */
 export type IdentityResolution = {
   input: string;
-  type: "ens" | "farcaster" | "email" | "address";
+  type: "float" | "ens" | "farcaster" | "email" | "address";
   resolvedAddress: string | null;
   chains: string[];
   preferredChain: string;
@@ -40,6 +40,18 @@ async function resolveEns(name: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** FLOAT handle → the address of the account that claimed it. */
+async function resolveFloatHandle(handle: string): Promise<string | null> {
+  const normalized = handle.replace(/^@/, "").toLowerCase();
+  if (!/^[a-z0-9_]{3,20}$/.test(normalized)) return null;
+  const { data } = await serviceDb()
+    .from("users")
+    .select("address")
+    .eq("handle", normalized)
+    .maybeSingle();
+  return data?.address ?? null;
 }
 
 /**
@@ -113,6 +125,15 @@ export async function resolveIdentity(input: string): Promise<IdentityResolution
   if (trimmed.toLowerCase().endsWith(".eth")) {
     return finish("ens", await resolveEns(trimmed));
   }
+
+  // A bare or @-prefixed handle is ambiguous between FLOAT and Farcaster, and
+  // FLOAT wins inside FLOAT. Resolving Farcaster first sent real money to a
+  // recipient's Farcaster-verified address while their FLOAT account — the one
+  // they were looking at — stayed empty. Farcaster remains the fallback, which
+  // keeps every handle that isn't a FLOAT user working exactly as before.
+  const floatAddress = await resolveFloatHandle(trimmed);
+  if (floatAddress) return finish("float", floatAddress);
+
   return finish("farcaster", await resolveFarcaster(trimmed));
 }
 
