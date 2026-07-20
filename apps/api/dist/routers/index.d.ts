@@ -72,6 +72,23 @@ export declare const appRouter: import("@trpc/server").TRPCBuiltRouter<{
             output: boolean;
             meta: object;
         }>;
+        setAvatar: import("@trpc/server").TRPCMutationProcedure<{
+            input: {
+                avatarUrl: string;
+            };
+            output: {
+                address: string | null;
+                avatar_url: string | null;
+                created_at: string;
+                email: string | null;
+                handle: string | null;
+                id: string;
+                magic_id: string | null;
+                preferred_chain_id: number | null;
+                updated_at: string;
+            };
+            meta: object;
+        }>;
         setHandle: import("@trpc/server").TRPCMutationProcedure<{
             input: {
                 handle: string;

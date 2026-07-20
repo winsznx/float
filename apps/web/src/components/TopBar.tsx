@@ -5,9 +5,12 @@ import Link from "next/link";
 import { Bell } from "lucide-react";
 import { api } from "@/lib/api";
 import { createRealtimeClient } from "@/lib/realtime";
+import { NotificationPanel, type Notification } from "@/components/NotificationPanel";
 
 export function TopBar() {
   const [unread, setUnread] = useState(0);
+  const [items, setItems] = useState<Notification[]>([]);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -16,7 +19,9 @@ export function TopBar() {
       api.feed.notifications
         .query()
         .then((rows) => {
-          if (!cancelled) setUnread(rows.filter((r) => !r.read).length);
+          if (cancelled) return;
+          setItems(rows as Notification[]);
+          setUnread(rows.filter((r) => !r.read).length);
         })
         .catch(() => {
           // A badge isn't worth surfacing an error for; it just stays at 0.
@@ -41,8 +46,12 @@ export function TopBar() {
     };
   }, []);
 
-  async function markRead() {
-    if (unread === 0) return;
+  async function toggle() {
+    const next = !open;
+    setOpen(next);
+    // Opening is what marks them read — a dot that clears without being read
+    // is worse than no dot.
+    if (!next || unread === 0) return;
     setUnread(0);
     try {
       await api.feed.markRead.mutate();
@@ -57,10 +66,10 @@ export function TopBar() {
         FLOAT
       </span>
 
-      <div className="flex items-center gap-3">
+      <div className="relative flex items-center gap-3">
         <button
           type="button"
-          onClick={markRead}
+          onClick={toggle}
           aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
           className="relative flex h-9 w-9 items-center justify-center rounded-full text-muted transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-dim)]"
         >
@@ -69,6 +78,8 @@ export function TopBar() {
             <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-signal" />
           )}
         </button>
+
+        {open && <NotificationPanel items={items} onClose={() => setOpen(false)} />}
 
         <Link
           href="/account"

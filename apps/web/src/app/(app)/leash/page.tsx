@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ModePill } from "@/components/ModePill";
+import { ModeHistory } from "@/components/ModeHistory";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { LeashCard } from "@/components/LeashCard";
@@ -105,6 +106,8 @@ export default function LeashPage() {
       <div className="w-full">
         <ModePill />
       </div>
+
+      <ModeHistory mode="leash" />
 
       {step === "beneficiary" && (
         <StepCard>

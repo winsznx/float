@@ -63,6 +63,24 @@ export declare const authRouter: import("@trpc/server").TRPCBuiltRouter<{
         output: boolean;
         meta: object;
     }>;
+    /** Records the uploaded avatar's URL against the user. */
+    setAvatar: import("@trpc/server").TRPCMutationProcedure<{
+        input: {
+            avatarUrl: string;
+        };
+        output: {
+            address: string | null;
+            avatar_url: string | null;
+            created_at: string;
+            email: string | null;
+            handle: string | null;
+            id: string;
+            magic_id: string | null;
+            preferred_chain_id: number | null;
+            updated_at: string;
+        };
+        meta: object;
+    }>;
     /** Claims a handle. Returns the persisted row, never a constructed object. */
     setHandle: import("@trpc/server").TRPCMutationProcedure<{
         input: {

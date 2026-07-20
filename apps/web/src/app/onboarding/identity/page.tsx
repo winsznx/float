@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkHandleAvailability } from "@/lib/identity";
 import { api } from "@/lib/api";
+import { uploadAvatar } from "@/lib/avatar";
 import { getErrorMessage } from "@/lib/errors";
 import { ErrorNote } from "@/components/ErrorNote";
 
@@ -82,12 +83,27 @@ export default function OnboardingIdentityPage() {
     fileInputRef.current?.click();
   }
 
-  function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    // TODO: replace local preview with a real upload once storage is decided.
-    setPhotoUrl(URL.createObjectURL(file));
+
+    // Show the local preview immediately, then replace it with the stored URL
+    // once the upload lands — the preview alone used to be the whole feature,
+    // so the photo vanished on reload.
+    const preview = URL.createObjectURL(file);
+    setPhotoUrl(preview);
+    setError(null);
+
+    try {
+      const stored = await uploadAvatar(file);
+      setPhotoUrl(stored);
+      URL.revokeObjectURL(preview);
+    } catch (caught) {
+      setPhotoUrl(null);
+      URL.revokeObjectURL(preview);
+      setError(getErrorMessage(caught));
+    }
   }
 
   return (

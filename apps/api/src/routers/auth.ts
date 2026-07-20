@@ -91,6 +91,20 @@ export const authRouter = router({
     .input(z.object({ handle: z.string().min(1) }))
     .query(({ input }) => checkHandleAvailability(input.handle)),
 
+  /** Records the uploaded avatar's URL against the user. */
+  setAvatar: protectedProcedure
+    .input(z.object({ avatarUrl: z.string().url() }))
+    .mutation(async ({ ctx, input }) => {
+      const { data, error } = await ctx.db
+        .from("users")
+        .update({ avatar_url: input.avatarUrl })
+        .eq("id", ctx.userId)
+        .select()
+        .single();
+      if (error) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+      return data;
+    }),
+
   /** Claims a handle. Returns the persisted row, never a constructed object. */
   setHandle: protectedProcedure
     .input(z.object({ handle: z.string().regex(/^[a-zA-Z0-9_]{3,20}$/) }))

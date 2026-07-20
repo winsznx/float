@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { ModePill } from "@/components/ModePill";
+import { ModeHistory } from "@/components/ModeHistory";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { ErrorNote } from "@/components/ErrorNote";
@@ -295,6 +296,8 @@ export default function SplitPage() {
       <div className="w-full">
         <ModePill />
       </div>
+
+      <ModeHistory mode="split" />
 
       {splitName && step !== "details" && (
         <p className="w-full max-w-sm px-2 font-body text-sm text-muted">

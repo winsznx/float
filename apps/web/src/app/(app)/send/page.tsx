@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import gsap from "gsap";
 import { ModePill } from "@/components/ModePill";
+import { ModeHistory } from "@/components/ModeHistory";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { ConfirmationCard } from "@/components/ConfirmationCard";
@@ -149,6 +150,26 @@ function SuccessStage({
   receipt: SendReceipt;
 }) {
   const settleRef = useRef<HTMLDivElement>(null);
+  const [shared, setShared] = useState(false);
+
+  /** The Share button did nothing at all — onClick was an empty function. */
+  async function shareReceipt() {
+    const text = `Sent ${formatCurrency(amount)} to ${recipientLabel} on FLOAT`;
+    const url = receipt.txId
+      ? `https://universalx.app/activity/details?id=${receipt.txId}`
+      : undefined;
+    try {
+      if (navigator.share) {
+        await navigator.share({ text, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url ? `${text} — ${url}` : text);
+      setShared(true);
+      setTimeout(() => setShared(false), 1500);
+    } catch {
+      // User dismissed the share sheet, or the clipboard is unavailable.
+    }
+  }
 
   useEffect(() => {
     const el = settleRef.current;
@@ -198,16 +219,26 @@ function SuccessStage({
           <span className="text-muted">Time</span>
           <span className="font-mono">{formatTimestamp(receipt.timestamp)}</span>
         </p>
+        {receipt.txId && (
+          <a
+            href={`https://universalx.app/activity/details?id=${receipt.txId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex justify-between font-body text-[13px] text-signal underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+          >
+            <span className="text-muted">Transaction</span>
+            <span className="font-mono">{`${receipt.txId.slice(0, 10)}…`}</span>
+          </a>
+        )}
       </div>
 
       <div className="mt-8 flex w-full flex-col gap-3">
-        {/* TODO: wire share functionality (native share sheet / copy receipt link). */}
         <button
           type="button"
-          onClick={() => {}}
+          onClick={shareReceipt}
           className="w-full rounded-full border-2 border-void bg-surface px-6 py-4 font-body text-[15px] font-medium text-text shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
         >
-          Share
+          {shared ? "Copied" : "Share receipt"}
         </button>
         <Link
           href="/home"
@@ -278,6 +309,8 @@ export default function SendPage() {
       <div className="w-full">
         <ModePill />
       </div>
+
+      <ModeHistory mode="send" />
 
       {step === "recipient" && (
         <StepCard>

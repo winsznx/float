@@ -5,6 +5,7 @@ import Link from "next/link";
 import gsap from "gsap";
 import { Lock } from "lucide-react";
 import { ModePill } from "@/components/ModePill";
+import { ModeHistory } from "@/components/ModeHistory";
 import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { PledgeCard } from "@/components/PledgeCard";
@@ -228,6 +229,8 @@ export default function PledgePage() {
       <div className="w-full">
         <ModePill />
       </div>
+
+      <ModeHistory mode="pledge" />
 
       {step === "goal" && (
         <StepCard>
