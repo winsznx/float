@@ -54,15 +54,15 @@ export async function ensureDelegated(address: string): Promise<void> {
   const [auth] = await ua.getEIP7702Auth([CHAIN_IDS.ARBITRUM]);
   if (!auth) throw new Error("Couldn't prepare your account for upgrade.");
 
-  // Magic signs and sends on whatever chain its app is configured for, and
-  // this SDK version has no switchChain. On the wrong chain the delegation
-  // goes to the wrong place and the gas check fails against an empty balance,
-  // surfacing as a misleading "insufficient funds". Say what's actually wrong.
+  // Magic is pinned to Arbitrum at construction (see magicNetwork), so this
+  // should never fire. It stays because the failure it catches is invisible:
+  // on the wrong chain the delegation is signed for the wrong place and the
+  // gas check runs against a balance that isn't there, surfacing as a
+  // misleading "insufficient funds" rather than a configuration error.
   const magicChainId = await getMagicChainId();
   if (magicChainId !== CHAIN_IDS.ARBITRUM) {
     throw new Error(
-      `Your wallet is on chain ${magicChainId}, but FLOAT settles on Arbitrum One (${CHAIN_IDS.ARBITRUM}). ` +
-        "Set the Magic app's network to Arbitrum One."
+      `Wallet is on chain ${magicChainId}, but FLOAT settles on Arbitrum One (${CHAIN_IDS.ARBITRUM}).`
     );
   }
 

@@ -5,7 +5,7 @@ import type {
   Sign7702AuthorizationRequest,
   Sign7702AuthorizationResponse,
 } from "@magic-sdk/types";
-import { magicPublishableKey } from "@/lib/chain/config";
+import { magicPublishableKey, magicNetwork } from "@/lib/chain/config";
 
 // Verified against magic-sdk@33.9.0 installed types:
 //   magic.auth.loginWithEmailOTP / loginWithMagicLink
@@ -22,7 +22,9 @@ export function getMagic(): Magic {
     throw new Error("Magic SDK is browser-only — call from a client component");
   }
   if (!instance) {
-    instance = new Magic(magicPublishableKey());
+    // Pinned to Arbitrum. This SDK version has no switchChain, so the network
+    // given here is the only one the wallet will ever sign or send on.
+    instance = new Magic(magicPublishableKey(), { network: magicNetwork });
   }
   return instance;
 }

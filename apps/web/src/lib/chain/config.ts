@@ -32,6 +32,22 @@ export const particleConfig = {
 export const particleRpcUrl = (): string =>
   `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"}/particle`;
 
+/**
+ * The chain Magic signs and sends on.
+ *
+ * Without this Magic defaults to Ethereum mainnet, and nothing about that is
+ * visible until a transaction fails: the EIP-7702 delegation is signed for the
+ * wrong chain, and the gas check runs against an Ethereum balance the account
+ * doesn't have. FLOAT settles on Arbitrum One, so Magic has to be there too.
+ *
+ * 42161 is CHAIN_IDS.ARBITRUM. The default endpoint is Arbitrum's own public
+ * RPC — a real node, overridable for a dedicated provider.
+ */
+export const magicNetwork = {
+  rpcUrl: process.env.NEXT_PUBLIC_ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc",
+  chainId: 42161,
+} as const;
+
 export const magicPublishableKey = (): string =>
   required("NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY", process.env.NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY);
 
