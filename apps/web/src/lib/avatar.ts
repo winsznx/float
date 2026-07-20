@@ -46,5 +46,9 @@ export async function uploadAvatar(file: File): Promise<string> {
   const { data } = client.storage.from("avatars").getPublicUrl(path);
   await api.auth.setAvatar.mutate({ avatarUrl: data.publicUrl });
 
+  // The top bar reads the profile once on mount, so without this the avatar
+  // there stays an empty circle until a full reload.
+  window.dispatchEvent(new CustomEvent("float:profile", { detail: data.publicUrl }));
+
   return data.publicUrl;
 }

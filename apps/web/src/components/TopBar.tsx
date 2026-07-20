@@ -41,6 +41,13 @@ export function TopBar() {
         // Falls back to the empty circle.
       });
 
+    // Uploading a new photo announces itself, so this updates without a reload.
+    const onProfile = (event: Event) => {
+      const next = (event as CustomEvent<string>).detail;
+      if (next) setAvatarUrl(next);
+    };
+    window.addEventListener("float:profile", onProfile);
+
     // The indexer writes notifications when chain events land, so this has to
     // be live rather than fetched once on mount.
     const client = createRealtimeClient();
@@ -53,6 +60,7 @@ export function TopBar() {
 
     return () => {
       cancelled = true;
+      window.removeEventListener("float:profile", onProfile);
       if (channel) void client?.removeChannel(channel);
     };
   }, []);
