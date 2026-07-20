@@ -11,6 +11,7 @@ export function TopBar() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,6 +30,16 @@ export function TopBar() {
         });
 
     void load();
+
+    // The avatar was a permanently empty circle even after uploading one.
+    api.auth.me
+      .query()
+      .then((me) => {
+        if (!cancelled) setAvatarUrl(me.avatar_url ?? null);
+      })
+      .catch(() => {
+        // Falls back to the empty circle.
+      });
 
     // The indexer writes notifications when chain events land, so this has to
     // be live rather than fetched once on mount.
@@ -90,8 +101,13 @@ export function TopBar() {
         <Link
           href="/account"
           aria-label="Account"
-          className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-void bg-void-3 transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-dim)]"
-        />
+          className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-void bg-void-3 transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-dim)]"
+        >
+          {avatarUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- user-uploaded avatar from Supabase storage, not an optimizable static asset
+            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+          )}
+        </Link>
       </div>
     </header>
   );
