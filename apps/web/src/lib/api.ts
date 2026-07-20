@@ -30,6 +30,27 @@ export function isUnauthorized(error: unknown): boolean {
   );
 }
 
+/**
+ * REST surface outside the /link namespace — routes that take no session and
+ * no capability token, like sponsored delegation, which a split member has to
+ * reach before they have either.
+ */
+export async function apiFetch<T>(
+  path: string,
+  init?: { method?: "GET" | "POST"; body?: unknown }
+): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: init?.method ?? "GET",
+    headers: { "Content-Type": "application/json" },
+    ...(init?.body ? { body: JSON.stringify(init.body) } : {}),
+  });
+  const data = (await response.json()) as T & { error?: string };
+  if (!response.ok || data.error) {
+    throw new Error(data.error ?? `Request failed (${response.status})`);
+  }
+  return data;
+}
+
 /** REST surface for capability-token links, which carry no session. */
 export async function linkFetch<T>(
   path: string,

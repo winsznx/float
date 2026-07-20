@@ -2,13 +2,9 @@
 
 import { createWalletClient, custom, serializeSignature, getAddress } from "viem";
 import { arbitrum } from "viem/chains";
-import {
-  getMagic,
-  sign7702Authorization,
-  delegateAccount,
-  getMagicChainId,
-} from "@/lib/chain/magic";
-import { createUniversalAccount, CHAIN_IDS } from "@/lib/chain/universal-account";
+import { getMagic, sign7702Authorization, getMagicChainId } from "@/lib/chain/magic";
+import { apiFetch } from "@/lib/api";
+import { CHAIN_IDS } from "@/lib/chain/universal-account";
 import type { ITransaction, EIP7702Authorization } from "@/lib/chain/universal-account";
 
 /**
@@ -40,25 +36,30 @@ import type { ITransaction, EIP7702Authorization } from "@/lib/chain/universal-a
  * chain-specific step means every later userOp reports `eip7702Delegated` and
  * needs no authorization at all.
  *
- * Costs one small gas fee, once per account, and is a no-op afterwards.
+ * The wallet only signs; the API pays to submit it. This used to be a real
+ * transaction from the user's own wallet, which a Magic wallet provisioned
+ * seconds earlier could never afford — the first send of every new account
+ * failed for want of gas the app had promised it would not need.
+ *
+ * A no-op once the account is delegated.
  */
 export async function ensureDelegated(address: string): Promise<void> {
-  const ua = createUniversalAccount(address);
+  const owner = getAddress(address);
 
-  const deployments = await ua.getEIP7702Deployments();
-  const target = deployments.find(
-    (d: { chainId: number; isDelegated?: boolean }) => d.chainId === CHAIN_IDS.ARBITRUM
-  );
-  if (target?.isDelegated) return;
-
-  const [auth] = await ua.getEIP7702Auth([CHAIN_IDS.ARBITRUM]);
-  if (!auth) throw new Error("Couldn't prepare your account for upgrade.");
+  // What to sign, decided by the API against live chain state. The signature
+  // commits to the nonce, so taking it from anywhere staler produces an
+  // authorization that is silently ignored on inclusion rather than rejected.
+  const preflight = await apiFetch<{
+    delegated: boolean;
+    contractAddress: string;
+    nonce: number;
+  }>(`/delegate/${owner}`);
+  if (preflight.delegated) return;
 
   // Magic is pinned to Arbitrum at construction (see magicNetwork), so this
   // should never fire. It stays because the failure it catches is invisible:
-  // on the wrong chain the delegation is signed for the wrong place and the
-  // gas check runs against a balance that isn't there, surfacing as a
-  // misleading "insufficient funds" rather than a configuration error.
+  // on the wrong chain the authorization is signed for the wrong place and is
+  // simply ignored, with nothing to say why.
   const magicChainId = await getMagicChainId();
   if (magicChainId !== CHAIN_IDS.ARBITRUM) {
     throw new Error(
@@ -66,12 +67,25 @@ export async function ensureDelegated(address: string): Promise<void> {
     );
   }
 
-  await delegateAccount({
-    delegateContract: auth.address,
-    // The real chain, never the 0 the auth tuple carries.
+  // Signing only — no transaction leaves this wallet, so it needs no ETH. The
+  // nonce is the account's current one: the +1 belongs to the case where the
+  // account sends its own type-4 and consumes a nonce first.
+  const signed = await sign7702Authorization({
+    contractAddress: preflight.contractAddress as `0x${string}`,
     chainId: CHAIN_IDS.ARBITRUM,
-    nonce: auth.nonce,
-    ownerAddress: getAddress(address),
+    nonce: preflight.nonce,
+  });
+
+  await apiFetch("/delegate", {
+    method: "POST",
+    body: {
+      address: owner,
+      contractAddress: preflight.contractAddress,
+      nonce: preflight.nonce,
+      r: signed.r,
+      s: signed.s,
+      v: signed.v,
+    },
   });
 }
 

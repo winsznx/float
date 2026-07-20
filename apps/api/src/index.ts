@@ -6,6 +6,7 @@ import { appRouter, type AppRouter } from "./routers/index.js";
 import { createContext } from "./trpc.js";
 import { registerLinkRoutes } from "./rest/links.js";
 import { registerParticleProxy } from "./rest/particle.js";
+import { registerDelegateRoutes } from "./rest/delegate.js";
 import { env } from "./lib/env.js";
 
 const app = Fastify({
@@ -85,6 +86,23 @@ await app.register(
     registerParticleProxy(instance);
   },
   { prefix: "/particle" }
+);
+
+// Sponsored EIP-7702 delegation. No session: split members and claim
+// recipients delegate from a capability link before they have an account.
+// Every call is validated against the chain and against Particle's own
+// expected implementation, and an already-delegated account is a no-op, so a
+// caller cannot spend our gas repeatedly. Tight limit on top of that.
+await app.register(
+  async (instance) => {
+    await instance.register(rateLimit, {
+      max: 10,
+      timeWindow: "1 minute",
+      keyGenerator: (req) => `delegate:${req.ip}`,
+    });
+    registerDelegateRoutes(instance);
+  },
+  { prefix: "/delegate" }
 );
 
 // The authenticated app.

@@ -75,18 +75,6 @@ export async function sign7702Authorization(
   return getMagic().wallet.sign7702Authorization(params);
 }
 
-/**
- * Sends a type-4 transaction that delegates the EOA in place.
- *
- * The account has to be delegated before it can run Universal Account
- * transactions. Doing it as its own step — rather than attaching an
- * authorization to the first transfer — is what Particle's own Magic demo
- * does, and it sidesteps the chainId-0 problem entirely: afterwards every
- * userOp reports `eip7702Delegated` and needs no authorization at all.
- *
- * The nonce is the authorization nonce plus one, because this transaction
- * consumes a nonce itself before the authorization takes effect.
- */
 /** The chain Magic's provider is actually operating on. */
 export async function getMagicChainId(): Promise<number> {
   const hex = (await getMagic().rpcProvider.request({
@@ -94,25 +82,4 @@ export async function getMagicChainId(): Promise<number> {
     params: [],
   })) as string;
   return Number(hex);
-}
-
-export async function delegateAccount(params: {
-  delegateContract: string;
-  chainId: number;
-  nonce: number;
-  ownerAddress: string;
-}): Promise<void> {
-  const magic = getMagic();
-
-  const authorization = await magic.wallet.sign7702Authorization({
-    contractAddress: params.delegateContract,
-    chainId: params.chainId,
-    nonce: params.nonce + 1,
-  });
-
-  await magic.wallet.send7702Transaction({
-    to: params.ownerAddress,
-    data: "0x",
-    authorizationList: [authorization],
-  });
 }

@@ -37,6 +37,11 @@ export const env = {
     return required("MAGIC_SECRET_KEY");
   },
 
+  /** Pays gas for EIP-7702 delegations so a new wallet never has to hold ETH. */
+  get sponsorPrivateKey() {
+    return required("DEPLOYER_PRIVATE_KEY");
+  },
+
   get particleProjectId() {
     return required("NEXT_PUBLIC_PARTICLE_PROJECT_ID");
   },
