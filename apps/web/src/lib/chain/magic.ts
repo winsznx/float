@@ -85,6 +85,15 @@ export async function sign7702Authorization(
  * The nonce is the authorization nonce plus one, because this transaction
  * consumes a nonce itself before the authorization takes effect.
  */
+/** The chain Magic's provider is actually operating on. */
+export async function getMagicChainId(): Promise<number> {
+  const hex = (await getMagic().rpcProvider.request({
+    method: "eth_chainId",
+    params: [],
+  })) as string;
+  return Number(hex);
+}
+
 export async function delegateAccount(params: {
   delegateContract: string;
   chainId: number;

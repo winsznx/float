@@ -2,7 +2,12 @@
 
 import { createWalletClient, custom, serializeSignature, getAddress } from "viem";
 import { arbitrum } from "viem/chains";
-import { getMagic, sign7702Authorization, delegateAccount } from "@/lib/chain/magic";
+import {
+  getMagic,
+  sign7702Authorization,
+  delegateAccount,
+  getMagicChainId,
+} from "@/lib/chain/magic";
 import { createUniversalAccount, CHAIN_IDS } from "@/lib/chain/universal-account";
 import type { ITransaction, EIP7702Authorization } from "@/lib/chain/universal-account";
 
@@ -48,6 +53,18 @@ export async function ensureDelegated(address: string): Promise<void> {
 
   const [auth] = await ua.getEIP7702Auth([CHAIN_IDS.ARBITRUM]);
   if (!auth) throw new Error("Couldn't prepare your account for upgrade.");
+
+  // Magic signs and sends on whatever chain its app is configured for, and
+  // this SDK version has no switchChain. On the wrong chain the delegation
+  // goes to the wrong place and the gas check fails against an empty balance,
+  // surfacing as a misleading "insufficient funds". Say what's actually wrong.
+  const magicChainId = await getMagicChainId();
+  if (magicChainId !== CHAIN_IDS.ARBITRUM) {
+    throw new Error(
+      `Your wallet is on chain ${magicChainId}, but FLOAT settles on Arbitrum One (${CHAIN_IDS.ARBITRUM}). ` +
+        "Set the Magic app's network to Arbitrum One."
+    );
+  }
 
   await delegateAccount({
     delegateContract: auth.address,
