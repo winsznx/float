@@ -62,9 +62,15 @@ export function TopBar() {
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-page px-5">
-      <span className="font-display text-[20px] font-bold tracking-tight text-text">
+      {/* Was plain text, so from a mode page there was no way back to home
+          short of the browser button. */}
+      <Link
+        href="/home"
+        aria-label="FLOAT home"
+        className="font-display text-[20px] font-bold tracking-tight text-text transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-dim)]"
+      >
         FLOAT
-      </span>
+      </Link>
 
       <div className="relative flex items-center gap-3">
         <button
