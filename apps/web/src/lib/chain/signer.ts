@@ -1,6 +1,7 @@
 "use client";
 
-import { serializeSignature } from "viem";
+import { createWalletClient, custom, serializeSignature, getAddress } from "viem";
+import { arbitrum } from "viem/chains";
 import { getMagic, sign7702Authorization } from "@/lib/chain/magic";
 import type { SignFn } from "@/lib/chain/contracts";
 
@@ -9,21 +10,32 @@ import type { SignFn } from "@/lib/chain/contracts";
  *
  * Two signatures, two different schemes, and they are NOT interchangeable:
  *
- *   rootHash  → personal_sign (EIP-191). Signing it as a raw digest returns
- *               AA24 "signature error" from the bundler.
+ *   rootHash  → EIP-191 personal_sign over the raw 32 bytes.
  *   7702 auth → sign7702Authorization, which signs the raw authorization
- *               tuple. chainId 0 means the authorization is valid on every
- *               chain, so one signature upgrades the account everywhere.
+ *               tuple. chainId 0 authorizes on every chain at once.
+ *
+ * The rootHash goes through a viem wallet client rather than a direct
+ * `personal_sign` RPC call. Passing the hash straight to the provider let it
+ * be treated as a UTF-8 string — signing the 66 characters "0x9170…" instead
+ * of the 32 bytes they represent — which produces a valid signature over the
+ * wrong preimage and comes back as "AA24 signature error" from the bundler.
+ * viem's `{ raw }` form pins the encoding, and matches the flow proven to
+ * settle on Arbitrum One.
  */
 export function magicSigner(address: string): SignFn {
   return async ({ rootHash, authorizations }) => {
     const magic = getMagic();
 
-    // EIP-191 personal_sign over the 32-byte root hash.
-    const rootSignature = (await magic.rpcProvider.request({
-      method: "personal_sign",
-      params: [rootHash, address],
-    })) as string;
+    const wallet = createWalletClient({
+      account: getAddress(address),
+      chain: arbitrum,
+      transport: custom(magic.rpcProvider as never),
+    });
+
+    const rootSignature = await wallet.signMessage({
+      account: getAddress(address),
+      message: { raw: rootHash as `0x${string}` },
+    });
 
     const tuple = authorizations[0];
     if (!tuple) {
