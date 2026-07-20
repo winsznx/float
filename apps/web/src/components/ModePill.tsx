@@ -20,7 +20,10 @@ export function ModePill() {
   const pathname = usePathname();
 
   return (
-    <div className="flex w-full gap-2 overflow-x-auto">
+    // Centered rather than left-aligned: the cards below are centered, so a
+    // flush-left row read as misaligned. justify-center with min-content
+    // keeps it centered on desktop and still scrollable on narrow screens.
+    <div className="flex w-full justify-center gap-2 overflow-x-auto py-1">
       {MODES.map(({ label, href, bgClass }) => {
         const isActive = pathname === href || pathname.startsWith(`${href}/`);
         return (
