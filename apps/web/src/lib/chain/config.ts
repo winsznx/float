@@ -20,6 +20,18 @@ export const particleConfig = {
   },
 };
 
+/**
+ * Particle's Universal Account RPC, routed through our own API.
+ *
+ * Hitting `universal-rpc-proxy.particle.network` from the browser fails with
+ * ERR_ADDRESS_UNREACHABLE on networks that can't resolve it — observed on a
+ * real user's connection, where every send died in `getEIP7702Deployments`
+ * before a signature was ever requested. Our API reaches Particle fine, so it
+ * forwards on the browser's behalf.
+ */
+export const particleRpcUrl = (): string =>
+  `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"}/particle`;
+
 export const magicPublishableKey = (): string =>
   required("NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY", process.env.NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY);
 

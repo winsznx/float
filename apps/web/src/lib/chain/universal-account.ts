@@ -6,7 +6,7 @@ import {
 } from "@particle-network/universal-account-sdk";
 import { serializeSignature, numberToHex } from "viem";
 import type { Sign7702AuthorizationResponse } from "@magic-sdk/types";
-import { particleConfig } from "@/lib/chain/config";
+import { particleConfig, particleRpcUrl } from "@/lib/chain/config";
 
 // Verified against @particle-network/universal-account-sdk@2.0.3 installed
 // types and compiled source:
@@ -59,6 +59,7 @@ export function createUniversalAccount(ownerAddress: string): UniversalAccount {
     projectId: particleConfig.projectId,
     projectClientKey: particleConfig.clientKey,
     projectAppUuid: particleConfig.appUuid,
+    rpcUrl: particleRpcUrl(),
     smartAccountOptions: {
       name: "UNIVERSAL",
       version: "2.0.1",
