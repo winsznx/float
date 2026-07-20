@@ -9,6 +9,7 @@ import {
 } from "@/lib/chain/universal-account";
 import { SUPPORTED_TOKEN_TYPE } from "@particle-network/universal-account-sdk";
 import { contracts } from "@/lib/chain/config";
+import { ensureDelegated } from "@/lib/chain/signer";
 
 /**
  * Contract calls routed through the Universal Account.
@@ -130,6 +131,9 @@ async function execute(
   expectUsd: string,
   sign: SignFn
 ): Promise<{ transactionId: string }> {
+  // One-time, and a no-op once the account carries a delegation.
+  await ensureDelegated(ownerAddress);
+
   const ua = createUniversalAccount(ownerAddress);
 
   const tx: ITransaction = await ua.createUniversalTransaction({

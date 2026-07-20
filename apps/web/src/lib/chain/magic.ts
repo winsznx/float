@@ -62,10 +62,46 @@ export async function getIdToken(): Promise<string> {
 
 /**
  * Sign an EIP-7702 authorization delegating the Magic EOA to `contractAddress`.
- * chainId 0 authorizes across all chains — the Universal Account upgrade path.
+ *
+ * ⚠ chainId must be a real chain. Magic cannot sign a chain-agnostic
+ * authorization (chainId 0) — it returns a signature the bundler rejects as
+ * "AA24 signature error".
  */
 export async function sign7702Authorization(
   params: Sign7702AuthorizationRequest
 ): Promise<Sign7702AuthorizationResponse> {
   return getMagic().wallet.sign7702Authorization(params);
+}
+
+/**
+ * Sends a type-4 transaction that delegates the EOA in place.
+ *
+ * The account has to be delegated before it can run Universal Account
+ * transactions. Doing it as its own step — rather than attaching an
+ * authorization to the first transfer — is what Particle's own Magic demo
+ * does, and it sidesteps the chainId-0 problem entirely: afterwards every
+ * userOp reports `eip7702Delegated` and needs no authorization at all.
+ *
+ * The nonce is the authorization nonce plus one, because this transaction
+ * consumes a nonce itself before the authorization takes effect.
+ */
+export async function delegateAccount(params: {
+  delegateContract: string;
+  chainId: number;
+  nonce: number;
+  ownerAddress: string;
+}): Promise<void> {
+  const magic = getMagic();
+
+  const authorization = await magic.wallet.sign7702Authorization({
+    contractAddress: params.delegateContract,
+    chainId: params.chainId,
+    nonce: params.nonce + 1,
+  });
+
+  await magic.wallet.send7702Transaction({
+    to: params.ownerAddress,
+    data: "0x",
+    authorizationList: [authorization],
+  });
 }

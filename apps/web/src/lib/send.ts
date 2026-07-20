@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
 import { createUniversalAccount, createUsdcTransfer } from "@/lib/chain/universal-account";
-import { signUniversalTransaction } from "@/lib/chain/signer";
+import { signUniversalTransaction, ensureDelegated } from "@/lib/chain/signer";
 import { readSession } from "@/lib/session";
 import type { IdentityResolution } from "@/lib/identity";
 
@@ -34,6 +34,7 @@ export async function sendPayment({
   // A recipient with no address yet gets a claim link instead of a transfer —
   // sending to nowhere would strand the money.
   if (recipient.resolvedAddress) {
+    await ensureDelegated(session.address);
     const ua = createUniversalAccount(session.address);
     const tx = await createUsdcTransfer(ua, recipient.resolvedAddress, String(amount));
     const { rootSignature, authorizations } = await signUniversalTransaction(

@@ -2,7 +2,8 @@
 
 import { createWalletClient, custom, serializeSignature, getAddress } from "viem";
 import { arbitrum } from "viem/chains";
-import { getMagic, sign7702Authorization } from "@/lib/chain/magic";
+import { getMagic, sign7702Authorization, delegateAccount } from "@/lib/chain/magic";
+import { createUniversalAccount, CHAIN_IDS } from "@/lib/chain/universal-account";
 import type { ITransaction, EIP7702Authorization } from "@/lib/chain/universal-account";
 
 /**
@@ -24,6 +25,39 @@ import type { ITransaction, EIP7702Authorization } from "@/lib/chain/universal-a
  * needs no authorization at all; sending one anyway is what breaks a second
  * transaction from an account that worked the first time.
  */
+/**
+ * Delegates the account if it isn't already, before any Universal Account
+ * transaction is built.
+ *
+ * A fresh Magic wallet has no delegation, and attaching an authorization to
+ * the first transfer doesn't work: the authorization Particle hands back is
+ * chain-agnostic (chainId 0) and Magic can't sign that. Delegating as its own
+ * chain-specific step means every later userOp reports `eip7702Delegated` and
+ * needs no authorization at all.
+ *
+ * Costs one small gas fee, once per account, and is a no-op afterwards.
+ */
+export async function ensureDelegated(address: string): Promise<void> {
+  const ua = createUniversalAccount(address);
+
+  const deployments = await ua.getEIP7702Deployments();
+  const target = deployments.find(
+    (d: { chainId: number; isDelegated?: boolean }) => d.chainId === CHAIN_IDS.ARBITRUM
+  );
+  if (target?.isDelegated) return;
+
+  const [auth] = await ua.getEIP7702Auth([CHAIN_IDS.ARBITRUM]);
+  if (!auth) throw new Error("Couldn't prepare your account for upgrade.");
+
+  await delegateAccount({
+    delegateContract: auth.address,
+    // The real chain, never the 0 the auth tuple carries.
+    chainId: CHAIN_IDS.ARBITRUM,
+    nonce: auth.nonce,
+    ownerAddress: getAddress(address),
+  });
+}
+
 export type SignedTransaction = {
   rootSignature: string;
   authorizations: EIP7702Authorization[];

@@ -3,7 +3,7 @@
 import { linkFetch } from "@/lib/api";
 import { createUniversalAccount, createUsdcTransfer } from "@/lib/chain/universal-account";
 import { resolvePledgeOnChain, spendLeashOnChain } from "@/lib/chain/contracts";
-import { signUniversalTransaction } from "@/lib/chain/signer";
+import { signUniversalTransaction, ensureDelegated } from "@/lib/chain/signer";
 import { loginWithEmailOtp, getWalletAddress, isLoggedIn } from "@/lib/chain/magic";
 
 /**
@@ -37,6 +37,7 @@ export async function settleShareOnChain(params: {
 }): Promise<{ txHash: string }> {
   const address = await ensureWallet(params.email);
 
+  await ensureDelegated(address);
   const ua = createUniversalAccount(address);
   const tx = await createUsdcTransfer(ua, params.organizerAddress, String(params.amount));
   const { rootSignature, authorizations } = await signUniversalTransaction(address, tx);
