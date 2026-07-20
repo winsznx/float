@@ -15,6 +15,31 @@ export declare const authRouter: import("@trpc/server").TRPCBuiltRouter<{
         output: import("../lib/auth.js").Session;
         meta: object;
     }>;
+    /** Issues a single-use nonce for wallet sign-in. */
+    walletNonce: import("@trpc/server").TRPCMutationProcedure<{
+        input: {
+            address: string;
+        };
+        output: {
+            nonce: string;
+            message: string;
+        };
+        meta: object;
+    }>;
+    /**
+     * Existing-wallet sign-in. The signature is verified against the exact
+     * message the server issued — an address on its own proves nothing, since
+     * anyone can claim one.
+     */
+    loginWithWallet: import("@trpc/server").TRPCMutationProcedure<{
+        input: {
+            address: string;
+            nonce: string;
+            signature: string;
+        };
+        output: import("../lib/auth.js").Session;
+        meta: object;
+    }>;
     /** The signed-in user's profile row, straight from Postgres. */
     me: import("@trpc/server").TRPCQueryProcedure<{
         input: void;

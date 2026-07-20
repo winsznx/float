@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import gsap from "gsap";
-import { getBalance, type UnifiedBalance } from "@/lib/balance";
-import { getErrorMessage } from "@/lib/errors";
+import type { UnifiedBalance } from "@/lib/balance";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -15,28 +14,13 @@ function formatCurrency(value: number): string {
 }
 
 type BalanceDisplayProps = {
+  balance: UnifiedBalance | null;
+  failed?: boolean;
   onOpen?: () => void;
 };
 
-export function BalanceDisplay({ onOpen }: BalanceDisplayProps) {
+export function BalanceDisplay({ balance, failed, onOpen }: BalanceDisplayProps) {
   const valueRef = useRef<HTMLSpanElement>(null);
-  const [balance, setBalance] = useState<UnifiedBalance | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    getBalance()
-      .then((result) => {
-        if (!cancelled) setBalance(result);
-      })
-      .catch((caught: unknown) => {
-        // Without this the counter sits at $0.00 with no explanation.
-        if (!cancelled) setError(getErrorMessage(caught));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Counts up once the real balance arrives, so what's on screen is always
   // live Universal Account state rather than a placeholder.
@@ -69,7 +53,7 @@ export function BalanceDisplay({ onOpen }: BalanceDisplayProps) {
   }, [balance]);
 
   const chainCount = balance?.chains.length ?? 0;
-  const subline = error
+  const subline = failed
     ? "Balance unavailable"
     : balance
       ? [`${chainCount} ${chainCount === 1 ? "chain" : "chains"}`, ...balance.tokens].join(" · ")

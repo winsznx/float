@@ -6,7 +6,7 @@ import {
   createUsdcTransfer,
   CHAIN_IDS,
 } from "@/lib/chain/universal-account";
-import { resolvePledgeOnChain } from "@/lib/chain/contracts";
+import { resolvePledgeOnChain, spendLeashOnChain } from "@/lib/chain/contracts";
 import { magicSigner } from "@/lib/chain/signer";
 import { loginWithEmailOtp, getWalletAddress, isLoggedIn } from "@/lib/chain/magic";
 
@@ -64,6 +64,33 @@ export async function settleShareOnChain(params: {
   });
 
   return { txHash };
+}
+
+/**
+ * Spends from a leash you've been granted.
+ *
+ * Signed by the beneficiary — the contract rejects anyone else — and the funds
+ * move straight from the owner to the destination. The indexer picks up the
+ * LeashSpent event and updates the remaining balance, so nothing is written
+ * here: the chain is what says how much authority has been used.
+ */
+export async function spendFromLeashOnChain(params: {
+  leashId: string;
+  amount: number;
+  to: string;
+  email?: string;
+}): Promise<{ txHash: string }> {
+  const address = await ensureWallet(params.email);
+
+  const { transactionId } = await spendLeashOnChain({
+    beneficiaryAddress: address,
+    leashId: params.leashId,
+    amountUsd: params.amount,
+    to: params.to,
+    sign: magicSigner(address),
+  });
+
+  return { txHash: transactionId };
 }
 
 /**

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import gsap from "gsap";
+import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 import { HeroCanvas } from "@/components/landing/HeroCanvas";
 import { HeroChips } from "@/components/landing/HeroChips";
 import { HeroDemo } from "@/components/landing/HeroDemo";
@@ -89,13 +90,7 @@ export function Hero() {
             >
               Continue with email
             </Link>
-            <Link
-              href="/onboarding/identity"
-              className="inline-flex items-center justify-center rounded-full border-2 px-[30px] py-3.5 text-center font-body text-[15px] font-medium text-text shadow-[5px_5px_0_0_var(--color-signal)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:scale-[0.98] hover:bg-signal-faint hover:shadow-[0_0_0_0_var(--color-signal)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
-              style={{ borderColor: "var(--color-brut-line)" }}
-            >
-              Connect wallet
-            </Link>
+            <ConnectWalletButton className="inline-flex items-center justify-center rounded-full border-2 px-[30px] py-3.5 text-center font-body text-[15px] font-medium text-text shadow-[5px_5px_0_0_var(--color-signal)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:scale-[0.98] hover:bg-signal-faint hover:shadow-[0_0_0_0_var(--color-signal)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]" />
           </div>
         </div>
 

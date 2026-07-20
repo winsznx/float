@@ -58,6 +58,17 @@ const LEASH_ABI = [
   },
   {
     type: "function",
+    name: "spend",
+    inputs: [
+      { name: "leashId", type: "bytes32" },
+      { name: "amount", type: "uint256" },
+      { name: "to", type: "address" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "revoke",
     inputs: [{ name: "leashId", type: "bytes32" }],
     outputs: [],
@@ -212,6 +223,41 @@ export async function revokeLeashOnChain(params: {
           abi: LEASH_ABI,
           functionName: "revoke",
           args: [params.leashId as `0x${string}`],
+        }),
+      },
+    ],
+    "0",
+    params.sign
+  );
+}
+
+/**
+ * Spends against a leash.
+ *
+ * Beneficiary-only — the contract reverts NotBeneficiary for anyone else, so
+ * this must be signed by the wallet the leash was granted to, not the owner.
+ * Funds move from the owner directly to `to`; the leash never custodies.
+ */
+export async function spendLeashOnChain(params: {
+  beneficiaryAddress: string;
+  leashId: string;
+  amountUsd: number;
+  to: string;
+  sign: SignFn;
+}): Promise<{ transactionId: string }> {
+  return execute(
+    params.beneficiaryAddress,
+    [
+      {
+        to: contracts.leashManager,
+        data: encodeFunctionData({
+          abi: LEASH_ABI,
+          functionName: "spend",
+          args: [
+            params.leashId as `0x${string}`,
+            parseUnits(String(params.amountUsd), USDC_DECIMALS),
+            params.to as `0x${string}`,
+          ],
         }),
       },
     ],

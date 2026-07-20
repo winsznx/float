@@ -2,6 +2,8 @@
 
 import { useEffect, useState, use } from "react";
 import { linkFetch } from "@/lib/api";
+import { spendFromLeashOnChain } from "@/lib/settle";
+import { ErrorNote } from "@/components/ErrorNote";
 import { getErrorMessage } from "@/lib/errors";
 
 /**
@@ -23,6 +25,7 @@ type LeashView = {
   expiry_tz: string | null;
   revoked: boolean;
   contract_scope: string;
+  onchain_leash_id: string | null;
 };
 
 function formatCurrency(value: number): string {
@@ -38,6 +41,11 @@ export default function LeashClaimPage({ params }: { params: Promise<{ token: st
   const { token } = use(params);
   const [leash, setLeash] = useState<LeashView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [amount, setAmount] = useState("");
+  const [to, setTo] = useState("");
+  const [email, setEmail] = useState("");
+  const [spending, setSpending] = useState(false);
+  const [spentTx, setSpentTx] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,7 +61,33 @@ export default function LeashClaimPage({ params }: { params: Promise<{ token: st
     };
   }, [token]);
 
-  if (error) {
+  async function spend() {
+    if (!leash?.onchain_leash_id) {
+      setError("This leash isn't on-chain yet.");
+      return;
+    }
+    setSpending(true);
+    setError(null);
+    try {
+      const { txHash } = await spendFromLeashOnChain({
+        leashId: leash.onchain_leash_id,
+        amount: Number(amount),
+        to,
+        email: email || undefined,
+      });
+      setSpentTx(txHash);
+      // Re-read so the remaining balance reflects what the indexer recorded.
+      const refreshed = await linkFetch<LeashView>(`/leash/claim/${token}`);
+      setLeash(refreshed);
+      setAmount("");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setSpending(false);
+    }
+  }
+
+  if (error && !leash) {
     return (
       <main className="flex min-h-screen items-center justify-center px-6">
         <div className="w-full max-w-sm rounded-2xl border-2 border-void bg-surface p-8 text-center shadow-[7px_7px_0_0_var(--color-brut-line)]">
@@ -112,6 +146,62 @@ export default function LeashClaimPage({ params }: { params: Promise<{ token: st
         <p className="mt-4 font-mono text-[11px] uppercase tracking-wide text-muted-2">
           Expires {expiry} · {leash.token} only
         </p>
+      </div>
+
+      <div className="rounded-2xl border-2 border-void bg-surface p-7 shadow-[7px_7px_0_0_var(--color-brut-line)]">
+        <p className="font-mono text-xs uppercase tracking-wide text-muted">Spend</p>
+
+        <label htmlFor="spend-amount" className="sr-only">Amount</label>
+        <input
+          id="spend-amount"
+          inputMode="decimal"
+          value={amount}
+          onChange={(e) => {
+            const next = e.target.value;
+            if (next === "" || /^\d*\.?\d{0,2}$/.test(next)) setAmount(next);
+          }}
+          placeholder="0.00"
+          className="mt-3 w-full rounded-md border-2 border-void bg-void-3 px-4 py-3 font-display text-[20px] font-bold text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+        />
+
+        <label htmlFor="spend-to" className="sr-only">Send to</label>
+        <input
+          id="spend-to"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          placeholder="0x… destination address"
+          className="mt-3 w-full rounded-md border-2 border-void bg-void-3 px-4 py-3 font-mono text-[13px] text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+        />
+
+        <label htmlFor="spend-email" className="sr-only">Your email</label>
+        <input
+          id="spend-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          className="mt-3 w-full rounded-md border-2 border-void bg-void-3 px-4 py-3 font-body text-[14px] text-text placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+        />
+        <p className="mt-2 font-body text-[12px] text-muted">
+          Sign in with the email this leash was sent to.
+        </p>
+
+        <ErrorNote message={error} className="mt-4" />
+
+        {spentTx && (
+          <p className="mt-4 rounded-md border-2 border-void bg-mint/25 px-4 py-3 font-body text-[13px] text-text">
+            Sent. The owner sees it in their activity feed.
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={spend}
+          disabled={spending || !amount || Number(amount) <= 0 || !/^0x[a-fA-F0-9]{40}$/.test(to)}
+          className="mt-4 w-full rounded-full border-2 border-void bg-lav px-6 py-4 font-body text-[15px] font-semibold text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] disabled:opacity-60 disabled:hover:translate-x-0 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+        >
+          {spending ? "Sending" : "Spend"}
+        </button>
       </div>
 
       <p className="text-center font-mono text-[11px] text-muted-2">

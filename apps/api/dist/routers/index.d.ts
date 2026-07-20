@@ -31,6 +31,25 @@ export declare const appRouter: import("@trpc/server").TRPCBuiltRouter<{
             output: import("../lib/auth.js").Session;
             meta: object;
         }>;
+        walletNonce: import("@trpc/server").TRPCMutationProcedure<{
+            input: {
+                address: string;
+            };
+            output: {
+                nonce: string;
+                message: string;
+            };
+            meta: object;
+        }>;
+        loginWithWallet: import("@trpc/server").TRPCMutationProcedure<{
+            input: {
+                address: string;
+                nonce: string;
+                signature: string;
+            };
+            output: import("../lib/auth.js").Session;
+            meta: object;
+        }>;
         me: import("@trpc/server").TRPCQueryProcedure<{
             input: void;
             output: {

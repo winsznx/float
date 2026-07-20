@@ -2,6 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "../trpc.js";
 import { verifyMagicToken, mintSession } from "../lib/auth.js";
+import { issueNonce, consumeNonce } from "../lib/nonce.js";
+import { verifyMessage, isAddress } from "viem";
 import { checkHandleAvailability } from "../lib/identity.js";
 import { getErrorMessage } from "../lib/errors.js";
 export const authRouter = router({
@@ -23,6 +25,47 @@ export const authRouter = router({
         catch (error) {
             throw new TRPCError({
                 code: "UNAUTHORIZED",
+                message: getErrorMessage(error),
+            });
+        }
+    }),
+    /** Issues a single-use nonce for wallet sign-in. */
+    walletNonce: publicProcedure
+        .input(z.object({ address: z.string().refine(isAddress, "Not a valid address") }))
+        .mutation(({ input }) => issueNonce(input.address)),
+    /**
+     * Existing-wallet sign-in. The signature is verified against the exact
+     * message the server issued — an address on its own proves nothing, since
+     * anyone can claim one.
+     */
+    loginWithWallet: publicProcedure
+        .input(z.object({
+        address: z.string().refine(isAddress, "Not a valid address"),
+        nonce: z.string().min(1),
+        signature: z.string().regex(/^0x[a-fA-F0-9]+$/),
+    }))
+        .mutation(async ({ input }) => {
+        const message = consumeNonce(input.address, input.nonce);
+        if (!message) {
+            throw new TRPCError({
+                code: "UNAUTHORIZED",
+                message: "That sign-in request expired. Try again.",
+            });
+        }
+        const valid = await verifyMessage({
+            address: input.address,
+            message,
+            signature: input.signature,
+        });
+        if (!valid) {
+            throw new TRPCError({ code: "UNAUTHORIZED", message: "Signature didn't verify." });
+        }
+        try {
+            return await mintSession(input.address, { email: null, magicIssuer: null });
+        }
+        catch (error) {
+            throw new TRPCError({
+                code: "INTERNAL_SERVER_ERROR",
                 message: getErrorMessage(error),
             });
         }
