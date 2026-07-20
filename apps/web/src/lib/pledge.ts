@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
 import { createPledgeOnChain } from "@/lib/chain/contracts";
-import { magicSigner } from "@/lib/chain/signer";
+import { signUniversalTransaction } from "@/lib/chain/signer";
 import { readSession } from "@/lib/session";
 import type { IdentityResolution } from "@/lib/identity";
 
@@ -79,7 +79,7 @@ export async function createPledge({
     failureDestination: destination,
     stakeUsd: stake,
     deadlineUnix: endOfDayUnix(deadline),
-    sign: magicSigner(session.address),
+    sign: (tx) => signUniversalTransaction(session.address, tx),
   });
 
   const row = await api.pledge.create.mutate({

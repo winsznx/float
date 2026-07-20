@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
 import { createLeashOnChain, revokeLeashOnChain } from "@/lib/chain/contracts";
-import { magicSigner } from "@/lib/chain/signer";
+import { signUniversalTransaction } from "@/lib/chain/signer";
 import { readSession } from "@/lib/session";
 import type { IdentityResolution } from "@/lib/identity";
 
@@ -54,7 +54,7 @@ export async function createLeash({
     beneficiaryAddress: beneficiary.resolvedAddress,
     spendLimitUsd: spendLimit,
     expiryUnix: endOfDayUnix(expiry),
-    sign: magicSigner(session.address),
+    sign: (tx) => signUniversalTransaction(session.address, tx),
   });
 
   const row = await api.leash.create.mutate({
@@ -97,7 +97,7 @@ export async function revokeLeash(id: string, onchainLeashId: string | null): Pr
   const { transactionId } = await revokeLeashOnChain({
     ownerAddress: session.address,
     leashId: onchainLeashId,
-    sign: magicSigner(session.address),
+    sign: (tx) => signUniversalTransaction(session.address, tx),
   });
 
   await api.leash.revoke.mutate({ id, txHash: transactionId });

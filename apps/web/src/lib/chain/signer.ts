@@ -3,7 +3,7 @@
 import { createWalletClient, custom, serializeSignature, getAddress } from "viem";
 import { arbitrum } from "viem/chains";
 import { getMagic, sign7702Authorization } from "@/lib/chain/magic";
-import type { SignFn } from "@/lib/chain/contracts";
+import type { ITransaction, EIP7702Authorization } from "@/lib/chain/universal-account";
 
 /**
  * Signs universal transactions with the Magic-provisioned wallet.
@@ -11,53 +11,71 @@ import type { SignFn } from "@/lib/chain/contracts";
  * Two signatures, two different schemes, and they are NOT interchangeable:
  *
  *   rootHash  → EIP-191 personal_sign over the raw 32 bytes.
- *   7702 auth → sign7702Authorization, which signs the raw authorization
- *               tuple. chainId 0 authorizes on every chain at once.
+ *   7702 auth → sign7702Authorization over the authorization tuple.
  *
- * The rootHash goes through a viem wallet client rather than a direct
- * `personal_sign` RPC call. Passing the hash straight to the provider let it
- * be treated as a UTF-8 string — signing the 66 characters "0x9170…" instead
- * of the 32 bytes they represent — which produces a valid signature over the
- * wrong preimage and comes back as "AA24 signature error" from the bundler.
- * viem's `{ raw }` form pins the encoding, and matches the flow proven to
- * settle on Arbitrum One.
+ * ⚠ The authorization must come from `userOp.eip7702Auth`, not from
+ * `getEIP7702Auth()`. The standalone call returns `chainId: 0` — a
+ * chain-agnostic authorization — and **Magic cannot sign chainId 0**. Doing so
+ * yields a signature the bundler rejects with the opaque "AA24 signature
+ * error". Each userOp carries its own chain-specific auth, which Magic signs
+ * correctly. (Confirmed against Particle's own Magic + 7702 demo.)
+ *
+ * A userOp whose account is already delegated sets `eip7702Delegated` and
+ * needs no authorization at all; sending one anyway is what breaks a second
+ * transaction from an account that worked the first time.
  */
-export function magicSigner(address: string): SignFn {
-  return async ({ rootHash, authorizations }) => {
-    const magic = getMagic();
+export type SignedTransaction = {
+  rootSignature: string;
+  authorizations: EIP7702Authorization[];
+};
 
-    const wallet = createWalletClient({
-      account: getAddress(address),
-      chain: arbitrum,
-      transport: custom(magic.rpcProvider as never),
-    });
+export async function signUniversalTransaction(
+  address: string,
+  tx: ITransaction
+): Promise<SignedTransaction> {
+  const magic = getMagic();
+  const owner = getAddress(address);
 
-    const rootSignature = await wallet.signMessage({
-      account: getAddress(address),
-      message: { raw: rootHash as `0x${string}` },
-    });
+  const authorizations: EIP7702Authorization[] = [];
+  // One signature per nonce — the same authorization covers every userOp that
+  // shares it, and re-signing would burn a prompt per operation.
+  const byNonce = new Map<number, string>();
 
-    const tuple = authorizations[0];
-    if (!tuple) {
-      throw new Error("Particle returned no EIP-7702 authorization to sign");
-    }
+  for (const op of tx.userOps ?? []) {
+    if (!op.eip7702Auth || op.eip7702Delegated) continue;
 
-    const signed = await sign7702Authorization({
-      contractAddress: tuple.address as `0x${string}`,
-      chainId: tuple.chainId,
-      nonce: tuple.nonce,
-    });
-
-    // Magic returns {v, r, s}; Particle wants the packed 65-byte signature
-    // with v normalized to yParity.
-    const authSignature =
-      signed.signature ??
-      serializeSignature({
-        r: signed.r as `0x${string}`,
-        s: signed.s as `0x${string}`,
-        yParity: signed.v >= 27 ? signed.v - 27 : signed.v,
+    let signature = byNonce.get(op.eip7702Auth.nonce);
+    if (!signature) {
+      const signed = await sign7702Authorization({
+        contractAddress: op.eip7702Auth.address as `0x${string}`,
+        // Chain-specific, never the 0 that getEIP7702Auth returns.
+        chainId: op.eip7702Auth.chainId || op.chainId,
+        nonce: op.eip7702Auth.nonce,
       });
 
-    return { rootSignature, authSignature };
-  };
+      signature =
+        signed.signature ??
+        serializeSignature({
+          r: signed.r as `0x${string}`,
+          s: signed.s as `0x${string}`,
+          yParity: signed.v >= 27 ? signed.v - 27 : signed.v,
+        });
+      byNonce.set(op.eip7702Auth.nonce, signature);
+    }
+
+    authorizations.push({ userOpHash: op.userOpHash, signature });
+  }
+
+  // The root hash is signed over its raw 32 bytes, not as a hex string.
+  const wallet = createWalletClient({
+    account: owner,
+    chain: arbitrum,
+    transport: custom(magic.rpcProvider as never),
+  });
+  const rootSignature = await wallet.signMessage({
+    account: owner,
+    message: { raw: tx.rootHash as `0x${string}` },
+  });
+
+  return { rootSignature, authorizations };
 }

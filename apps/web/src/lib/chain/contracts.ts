@@ -5,6 +5,7 @@ import {
   createUniversalAccount,
   CHAIN_IDS,
   type ITransaction,
+  type EIP7702Authorization,
 } from "@/lib/chain/universal-account";
 import { SUPPORTED_TOKEN_TYPE } from "@particle-network/universal-account-sdk";
 import { contracts } from "@/lib/chain/config";
@@ -118,20 +119,11 @@ const PLEDGE_ABI = [
   },
 ] as const satisfies Abi;
 
-export type SignFn = (params: {
-  rootHash: string;
-  authorizations: Array<{ chainId: number; nonce: number; address: string }>;
-  userOpHashes: string[];
-}) => Promise<{ rootSignature: string; authSignature: string }>;
+export type SignFn = (
+  tx: ITransaction
+) => Promise<{ rootSignature: string; authorizations: EIP7702Authorization[] }>;
 
-/**
- * Builds, signs, and submits a universal transaction.
- *
- * Two signatures with different schemes, and they are NOT interchangeable:
- * the rootHash is signed as an EIP-191 personal message, the 7702
- * authorization tuple as a raw digest. Signing the rootHash raw returns AA24
- * from the bundler.
- */
+/** Builds, signs, and submits a universal transaction. */
 async function execute(
   ownerAddress: string,
   calls: Array<{ to: string; data: string }>,
@@ -149,17 +141,15 @@ async function execute(
     transactions: calls,
   });
 
-  const authTuples = await ua.getEIP7702Auth([CHAIN_IDS.ARBITRUM]);
-  const { rootSignature, authSignature } = await sign({
-    rootHash: tx.rootHash,
-    authorizations: authTuples,
-    userOpHashes: tx.userOps.map((op) => op.userOpHash),
-  });
+  // Authorizations come from the userOps themselves — see signer.ts for why
+  // getEIP7702Auth() can't be used with Magic. An already-delegated account
+  // needs none, and passing an empty list would be rejected.
+  const { rootSignature, authorizations } = await sign(tx);
 
   const result = await ua.sendTransaction(
     tx,
     rootSignature,
-    tx.userOps.map((op) => ({ userOpHash: op.userOpHash, signature: authSignature }))
+    authorizations.length > 0 ? authorizations : undefined
   );
 
   return { transactionId: result?.transactionId ?? tx.transactionId };

@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
 import { createUniversalAccount, createUsdcTransfer } from "@/lib/chain/universal-account";
-import { magicSigner } from "@/lib/chain/signer";
+import { signUniversalTransaction } from "@/lib/chain/signer";
 import { readSession } from "@/lib/session";
 import type { IdentityResolution } from "@/lib/identity";
 
@@ -36,16 +36,14 @@ export async function sendPayment({
   if (recipient.resolvedAddress) {
     const ua = createUniversalAccount(session.address);
     const tx = await createUsdcTransfer(ua, recipient.resolvedAddress, String(amount));
-    const authTuples = await ua.getEIP7702Auth([42161]);
-    const { rootSignature, authSignature } = await magicSigner(session.address)({
-      rootHash: tx.rootHash,
-      authorizations: authTuples,
-      userOpHashes: tx.userOps.map((op) => op.userOpHash),
-    });
+    const { rootSignature, authorizations } = await signUniversalTransaction(
+      session.address,
+      tx
+    );
     const result = await ua.sendTransaction(
       tx,
       rootSignature,
-      tx.userOps.map((op) => ({ userOpHash: op.userOpHash, signature: authSignature }))
+      authorizations.length > 0 ? authorizations : undefined
     );
     txHash = result?.transactionId ?? tx.transactionId;
   }

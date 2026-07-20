@@ -1,13 +1,9 @@
 "use client";
 
 import { linkFetch } from "@/lib/api";
-import {
-  createUniversalAccount,
-  createUsdcTransfer,
-  CHAIN_IDS,
-} from "@/lib/chain/universal-account";
+import { createUniversalAccount, createUsdcTransfer } from "@/lib/chain/universal-account";
 import { resolvePledgeOnChain, spendLeashOnChain } from "@/lib/chain/contracts";
-import { magicSigner } from "@/lib/chain/signer";
+import { signUniversalTransaction } from "@/lib/chain/signer";
 import { loginWithEmailOtp, getWalletAddress, isLoggedIn } from "@/lib/chain/magic";
 
 /**
@@ -43,18 +39,12 @@ export async function settleShareOnChain(params: {
 
   const ua = createUniversalAccount(address);
   const tx = await createUsdcTransfer(ua, params.organizerAddress, String(params.amount));
-  const authTuples = await ua.getEIP7702Auth([CHAIN_IDS.ARBITRUM]);
-
-  const { rootSignature, authSignature } = await magicSigner(address)({
-    rootHash: tx.rootHash,
-    authorizations: authTuples,
-    userOpHashes: tx.userOps.map((op) => op.userOpHash),
-  });
+  const { rootSignature, authorizations } = await signUniversalTransaction(address, tx);
 
   const result = await ua.sendTransaction(
     tx,
     rootSignature,
-    tx.userOps.map((op) => ({ userOpHash: op.userOpHash, signature: authSignature }))
+    authorizations.length > 0 ? authorizations : undefined
   );
   const txHash = result?.transactionId ?? tx.transactionId;
 
@@ -87,7 +77,7 @@ export async function spendFromLeashOnChain(params: {
     leashId: params.leashId,
     amountUsd: params.amount,
     to: params.to,
-    sign: magicSigner(address),
+    sign: (tx) => signUniversalTransaction(address, tx),
   });
 
   return { txHash: transactionId };
@@ -110,7 +100,7 @@ export async function giveWitnessVerdictOnChain(params: {
     witnessOwnerAddress: address,
     pledgeId: params.onchainPledgeId,
     succeeded: params.succeeded,
-    sign: magicSigner(address),
+    sign: (tx) => signUniversalTransaction(address, tx),
   });
 
   await linkFetch(`/witness/${params.witnessToken}`, {
