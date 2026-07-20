@@ -1,7 +1,13 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { loginWithEmailOtp, getIdToken } from "@/lib/chain/magic";
+import {
+  loginWithEmailOtp,
+  getIdToken,
+  isLoggedIn,
+  getSignedInEmail,
+  logout as magicLogout,
+} from "@/lib/chain/magic";
 import { writeSession, clearSession, type StoredSession } from "@/lib/session";
 
 /**
@@ -10,6 +16,21 @@ import { writeSession, clearSession, type StoredSession } from "@/lib/session";
  * a Supabase session. The browser never asserts its own identity.
  */
 export async function signInWithEmail(email: string): Promise<StoredSession> {
+  // Magic may already hold a session from a previous visit. Calling
+  // loginWithEmailOTP while authenticated leaves the promise pending with no
+  // modal shown — the button just sits on "check your email" forever. So
+  // reuse a matching session, and clear a mismatched one before prompting.
+  if (await isLoggedIn()) {
+    const current = await getSignedInEmail();
+    if (current && current.toLowerCase() === email.trim().toLowerCase()) {
+      const existingToken = await getIdToken();
+      const existing = await api.auth.loginWithMagic.mutate({ didToken: existingToken });
+      writeSession(existing);
+      return existing;
+    }
+    await magicLogout();
+  }
+
   await loginWithEmailOtp(email);
   const didToken = await getIdToken();
   const session = await api.auth.loginWithMagic.mutate({ didToken });

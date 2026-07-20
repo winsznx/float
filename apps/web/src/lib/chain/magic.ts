@@ -40,6 +40,16 @@ export async function isLoggedIn(): Promise<boolean> {
   return getMagic().user.isLoggedIn();
 }
 
+/** Email of the currently signed-in Magic user, if any. */
+export async function getSignedInEmail(): Promise<string | null> {
+  try {
+    const info = await getMagic().user.getInfo();
+    return info.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getWalletAddress(): Promise<string | null> {
   const info = await getMagic().user.getInfo();
   return info.wallets?.ethereum?.publicAddress ?? null;

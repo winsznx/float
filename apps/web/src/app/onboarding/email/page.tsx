@@ -50,6 +50,21 @@ export default function OnboardingEmailPage() {
     }
   }
 
+  /**
+   * Escape hatch. A half-finished Magic session used to be unrecoverable from
+   * the UI — clearing it required devtools.
+   */
+  async function startOver() {
+    setError(null);
+    setBusy(false);
+    try {
+      const { signOut } = await import("@/lib/auth");
+      await signOut();
+    } catch {
+      // Nothing to clear.
+    }
+  }
+
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-20">
       <div className="w-full max-w-[420px] rounded-[22px] border-2 border-void bg-surface p-9 shadow-[7px_7px_0_0_var(--color-brut-line)]">
@@ -91,6 +106,14 @@ export default function OnboardingEmailPage() {
               Enter the six-digit code in the Magic window.
             </p>
           )}
+
+          <button
+            type="button"
+            onClick={startOver}
+            className="mt-6 font-mono text-[12px] text-muted-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+          >
+            Stuck? Sign out and start over
+          </button>
         </form>
       </div>
     </main>
