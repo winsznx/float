@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "pretypecheck": "npm run build --workspace @float/api",
     "prebuild": "npm run build --workspace @float/api",
     "e2e": "playwright test",
     "e2e:prod": "E2E_BASE_URL=https://float-web-production.up.railway.app playwright test"

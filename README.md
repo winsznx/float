@@ -4,7 +4,7 @@
 
 FLOAT is a chain-abstracted social money layer. One product, four modes, one identity, one balance — and the person using it never sees a chain selector, a gas prompt, or a bridge step.
 
-**Live:** [float-web-production.up.railway.app](https://float-web-production.up.railway.app) · **API:** [health](https://float-api-production-c8bb.up.railway.app/health)
+**Demo:** [3-minute walkthrough](https://youtu.be/ccjGMGdV5Kc) · **Live:** [float-web-production.up.railway.app](https://float-web-production.up.railway.app) · **API:** [health](https://float-api-production-c8bb.up.railway.app/health)
 
 ---
 
