@@ -148,7 +148,10 @@ npm run verify:session --workspace @float/db       #  9 session minting
 npm run verify --workspace @float/api              # 35 endpoints, live ENS/Neynar/Particle
 npm run verify:security --workspace @float/api     # 23 attack boundaries
 npm run verify --workspace @float/indexer          # 12 real mainnet events, costs ~$0.15
+npm run e2e --workspace @float/web                 # 11 browser tests over the lifecycle
 ```
+
+`npm run e2e:prod` runs the same suite against the deployed URL.
 
 The indexer suite genuinely spends money: it creates a leash on Arbitrum One, spends against it, revokes it, and asserts Postgres mirrors each event.
 
