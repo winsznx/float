@@ -10,6 +10,7 @@ import { AmountInput } from "@/components/AmountInput";
 import { ConfirmationCard } from "@/components/ConfirmationCard";
 import { ErrorNote } from "@/components/ErrorNote";
 import { sendPayment } from "@/lib/send";
+import { downloadReceiptImage } from "@/lib/receipt-image";
 import { getErrorMessage } from "@/lib/errors";
 import { getBalance, type UnifiedBalance } from "@/lib/balance";
 import type { IdentityResolution } from "@/lib/identity";
@@ -151,19 +152,44 @@ function SuccessStage({
 }) {
   const settleRef = useRef<HTMLDivElement>(null);
   const [shared, setShared] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
-  /** The Share button did nothing at all — onClick was an empty function. */
+  async function saveImage() {
+    setSaving(true);
+    setImageError(null);
+    try {
+      await downloadReceiptImage({
+        amount,
+        recipientLabel,
+        senderHandle: null,
+        timestamp: receipt.timestamp,
+        status: receipt.status,
+        txId: receipt.txId,
+      });
+    } catch (caught) {
+      setImageError(getErrorMessage(caught));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /**
+   * The Share button did nothing at all — onClick was an empty function.
+   *
+   * The link is FLOAT's own receipt, not Particle's explorer: that page shows
+   * a bundler's view of a userOp rather than "you paid this person this much",
+   * and it exposed the sender's whole activity history to anyone with the URL.
+   */
   async function shareReceipt() {
     const text = `Sent ${formatCurrency(amount)} to ${recipientLabel} on FLOAT`;
-    const url = receipt.txId
-      ? `https://universalx.app/activity/details?id=${receipt.txId}`
-      : undefined;
+    const url = `${window.location.origin}/r/${receipt.shareToken}`;
     try {
       if (navigator.share) {
         await navigator.share({ text, url });
         return;
       }
-      await navigator.clipboard.writeText(url ? `${text} — ${url}` : text);
+      await navigator.clipboard.writeText(`${text} — ${url}`);
       setShared(true);
       setTimeout(() => setShared(false), 1500);
     } catch {
@@ -240,6 +266,15 @@ function SuccessStage({
         >
           {shared ? "Copied" : "Share receipt"}
         </button>
+        <button
+          type="button"
+          onClick={saveImage}
+          disabled={saving}
+          className="w-full rounded-full border-2 border-void bg-surface px-6 py-4 font-body text-[15px] font-medium text-text shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
+        >
+          {saving ? "Saving" : "Save as image"}
+        </button>
+        <ErrorNote message={imageError} />
         <Link
           href="/home"
           className="w-full rounded-full border-2 border-void bg-coral px-6 py-4 text-center font-body text-[15px] font-semibold text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"

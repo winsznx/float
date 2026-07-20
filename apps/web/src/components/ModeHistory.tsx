@@ -48,6 +48,7 @@ async function loadRows(mode: "send" | "split" | "leash" | "pledge"): Promise<Ro
       amount: r.amount,
       status: r.status,
       statusTone: r.status === "confirmed" ? "good" : r.status === "failed" ? "bad" : "neutral",
+      href: `/r/${r.share_token}`,
       createdAt: r.created_at,
     }));
   }
@@ -63,6 +64,7 @@ async function loadRows(mode: "send" | "split" | "leash" | "pledge"): Promise<Ro
         amount: r.total_amount,
         status: `${settled}/${members.length} settled`,
         statusTone: settled === members.length && members.length > 0 ? "good" : "neutral",
+        href: r.share_link_token ? `/settle/${r.share_link_token}` : undefined,
         createdAt: r.created_at,
       };
     });

@@ -8,6 +8,9 @@ export type SendReceipt = {
   id: string;
   txId: string;
   timestamp: number;
+  /** Capability token for the public /r/[token] receipt page. */
+  shareToken: string;
+  status: string;
 };
 
 type SendPaymentParams = {
@@ -59,5 +62,7 @@ export async function sendPayment({
     id: row.id,
     txId: row.tx_hash ?? row.id,
     timestamp: new Date(row.created_at).getTime(),
+    shareToken: row.share_token,
+    status: row.status,
   };
 }

@@ -22,12 +22,8 @@ const LABELS: Record<string, string> = {
   pledge_failed: "Pledge missed",
 };
 
-const HREFS: Record<string, string> = {
-  send: "/send",
-  split: "/split",
-  leash: "/leash",
-  pledge: "/pledge",
-};
+const ROW_CLASS =
+  "flex items-center justify-between gap-3 rounded-md px-4 py-3 transition-colors";
 
 function timeAgo(iso: string): string {
   const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -102,21 +98,36 @@ export function ActivityFeed() {
   return (
     <div className="rounded-lg border-2 border-void bg-surface p-2 shadow-[5px_5px_0_0_var(--color-brut-line)]">
       <ul className="flex flex-col">
-        {rows.map((row) => (
-          <li key={row.id}>
-            <Link
-              href={HREFS[row.refType] ?? "/home"}
-              className="flex items-center justify-between gap-3 rounded-md px-4 py-3 transition-colors hover:bg-void-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
-            >
+        {rows.map((row) => {
+          const body = (
+            <>
               <span className="font-body text-[14px] text-text">
                 {LABELS[row.type] ?? row.type}
               </span>
               <span className="shrink-0 font-mono text-[11px] text-muted-2">
                 {timeAgo(row.createdAt)}
               </span>
-            </Link>
-          </li>
-        ))}
+            </>
+          );
+
+          // Every row used to link to its mode's create page, so clicking a
+          // past transfer started a new one. A row with nothing to open is
+          // now inert rather than misleading.
+          return (
+            <li key={row.id}>
+              {row.href ? (
+                <Link
+                  href={row.href}
+                  className={`${ROW_CLASS} hover:bg-void-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal`}
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div className={ROW_CLASS}>{body}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

@@ -109,6 +109,43 @@ export function registerLinkRoutes(app: FastifyInstance) {
     return { ...send, senderHandle: sender?.handle ?? null };
   });
 
+  /**
+   * Shareable receipt for a completed send.
+   *
+   * Replaces linking receipts out to Particle's explorer, which showed a
+   * bundler's view of a userOp rather than "you paid this person this much"
+   * and exposed the sender's whole activity history to anyone with the link.
+   *
+   * Keyed on share_token, not the send id, so a shared receipt can be revoked
+   * without touching the send. Returns only what a receipt shows — no
+   * addresses, no claim token, nothing about the sender beyond their handle.
+   */
+  app.get<{ Params: { token: string } }>("/receipt/:token", async (req, reply) => {
+    const db = serviceDb();
+    const { data, error } = await db
+      .from("sends")
+      .select("amount, token, note, status, recipient_input, recipient_type, tx_hash, created_at, sender_id")
+      .eq("share_token", req.params.token)
+      .maybeSingle();
+
+    if (error || !data) {
+      return reply.code(404).send({ error: "This receipt is no longer available." });
+    }
+
+    const { data: sender } = await db
+      .from("users")
+      .select("handle, avatar_url")
+      .eq("id", data.sender_id)
+      .maybeSingle();
+
+    const { sender_id: _omitted, ...receipt } = data;
+    return {
+      ...receipt,
+      senderHandle: sender?.handle ?? null,
+      senderAvatarUrl: sender?.avatar_url ?? null,
+    };
+  });
+
   /** Marks a send claimed once the recipient has a wallet. */
   app.post<{ Params: { token: string }; Body: { address: string } }>(
     "/claim/:token",
