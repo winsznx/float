@@ -10,11 +10,10 @@ import { ConfirmationCard } from "@/components/ConfirmationCard";
 import { ErrorNote } from "@/components/ErrorNote";
 import { sendPayment } from "@/lib/send";
 import { getErrorMessage } from "@/lib/errors";
+import { getBalance, type UnifiedBalance } from "@/lib/balance";
 import type { IdentityResolution } from "@/lib/identity";
 import type { SendReceipt } from "@/lib/send";
 
-const SOURCE_CHAIN = "Base";
-const MAX_AMOUNT = 1247.83;
 const NOTE_LIMIT = 140;
 
 type Step = "recipient" | "amount" | "note" | "confirm" | "sending" | "success";
@@ -228,10 +227,30 @@ export default function SendPage() {
   const [note, setNote] = useState("");
   const [receipt, setReceipt] = useState<SendReceipt | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [balance, setBalance] = useState<UnifiedBalance | null>(null);
+
+  // MAX and the source chain come from the user's real holdings. These were
+  // hardcoded to $1,247.83 and "Base", so MAX offered money that wasn't there
+  // and the confirmation card named a chain the user may not hold anything on.
+  useEffect(() => {
+    let cancelled = false;
+    getBalance()
+      .then((result) => {
+        if (!cancelled) setBalance(result);
+      })
+      .catch(() => {
+        // Leave MAX unavailable rather than inventing a ceiling.
+        if (!cancelled) setBalance({ total: 0, chains: [], tokens: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const amount = Number(amountValue) || 0;
   const recipientLabel = resolution?.input ?? "";
-  const destinationChain = resolution?.preferredChain || SOURCE_CHAIN;
+  const sourceChain = balance?.chains[0]?.chain ?? "your balance";
+  const destinationChain = resolution?.preferredChain || sourceChain;
 
   const handleResolvedChange = useCallback(
     (next: IdentityResolution | null) => setResolution(next),
@@ -277,9 +296,17 @@ export default function SendPage() {
           <AmountInput
             value={amountValue}
             onChange={setAmountValue}
-            maxAmount={MAX_AMOUNT}
+            maxAmount={balance?.total ?? 0}
           />
-          <PrimaryButton disabled={amount <= 0} onClick={() => setStep("note")}>
+          {balance && amount > balance.total && (
+            <p className="mt-3 text-center font-body text-[13px] text-coral">
+              That&apos;s more than your balance of ${balance.total.toFixed(2)}.
+            </p>
+          )}
+          <PrimaryButton
+            disabled={amount <= 0 || (!!balance && amount > balance.total)}
+            onClick={() => setStep("note")}
+          >
             Next
           </PrimaryButton>
         </StepCard>
@@ -317,7 +344,7 @@ export default function SendPage() {
           <ConfirmationCard
             amount={amount}
             recipientLabel={recipientLabel}
-            sourceChain={SOURCE_CHAIN}
+            sourceChain={sourceChain}
             destinationChain={destinationChain}
             onConfirm={handleConfirm}
             confirming={false}

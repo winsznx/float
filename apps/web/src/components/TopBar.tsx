@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Bell } from "lucide-react";
 import { api } from "@/lib/api";
 import { createRealtimeClient } from "@/lib/realtime";
@@ -69,8 +70,8 @@ export function TopBar() {
           )}
         </button>
 
-        <button
-          type="button"
+        <Link
+          href="/account"
           aria-label="Account"
           className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-void bg-void-3 transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal-dim)]"
         />
