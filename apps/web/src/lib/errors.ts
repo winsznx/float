@@ -12,7 +12,7 @@ const KNOWN: Array<[RegExp, string]> = [
   [/insufficient|exceeds balance/i, "Not enough balance for that amount."],
   [/user rejected|user denied|4001/i, "You cancelled the signature."],
   [/is not supported by universal account/i, "That chain isn't supported yet."],
-  [/network|fetch failed|ECONNRESET|timeout/i, "Network hiccup. Check your connection and retry."],
+  [/fetch failed|ECONNRESET|ETIMEDOUT|Failed to fetch/i, "Network hiccup. Check your connection and retry."],
   [/not a constructor/i, "Something failed to load. Refresh the page and retry."],
 ];
 
@@ -23,6 +23,13 @@ const KNOWN: Array<[RegExp, string]> = [
  * rather than rendering "[object Object]".
  */
 export function getErrorMessage(error: unknown): string {
+  // Always log the original. The friendly text below is deliberately lossy,
+  // and without this the underlying cause is unrecoverable from a bug report —
+  // which cost real debugging time when a mapped message hid the actual error.
+  if (typeof window !== "undefined" && error) {
+    console.error("[float] original error:", error);
+  }
+
   const raw =
     error instanceof Error && error.message
       ? error.message
