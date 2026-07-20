@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { checkHandleAvailability } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
+import { uploadAvatar } from "@/lib/avatar";
 import { getErrorMessage } from "@/lib/errors";
 import { ErrorNote } from "@/components/ErrorNote";
 import { ModePill } from "@/components/ModePill";
@@ -22,6 +23,7 @@ export default function AccountPage() {
     handle: string | null;
     address: string | null;
     email: string | null;
+    avatarUrl: string | null;
   } | null>(null);
   const [handle, setHandle] = useState("");
   const [status, setStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
@@ -29,6 +31,8 @@ export default function AccountPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,7 +40,12 @@ export default function AccountPage() {
       .query()
       .then((me) => {
         if (cancelled) return;
-        setProfile({ handle: me.handle, address: me.address, email: me.email });
+        setProfile({
+          handle: me.handle,
+          address: me.address,
+          email: me.email,
+          avatarUrl: me.avatar_url ?? null,
+        });
         setHandle(me.handle ?? "");
       })
       .catch((caught: unknown) => {
@@ -90,6 +99,25 @@ export default function AccountPage() {
     }
   }
 
+  /** Photo could only ever be set during onboarding, and even then it was
+   *  never uploaded — this is the only place it can actually be changed. */
+  async function handlePhoto(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setUploading(true);
+    setError(null);
+    try {
+      const url = await uploadAvatar(file);
+      setProfile((prev) => (prev ? { ...prev, avatarUrl: url } : prev));
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function copyAddress() {
     if (!profile?.address) return;
     try {
@@ -109,6 +137,44 @@ export default function AccountPage() {
   return (
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
       <ModePill />
+
+      <div className="rounded-2xl border-2 border-void bg-surface p-7 shadow-[7px_7px_0_0_var(--color-brut-line)]">
+        <p className="font-mono text-xs uppercase tracking-wide text-muted">Photo</p>
+
+        <div className="mt-3 flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            aria-label={profile?.avatarUrl ? "Change profile photo" : "Add profile photo"}
+            className="flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-void bg-void-3 text-muted-2 transition-transform duration-150 hover:-translate-y-0.5 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+          >
+            {profile?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- user-uploaded avatar from Supabase storage, not an optimizable static asset
+              <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="font-mono text-[10px]">Add</span>
+            )}
+          </button>
+
+          <div>
+            <p className="font-body text-[14px] text-text">
+              {uploading ? "Uploading" : profile?.avatarUrl ? "Looking good." : "Add a photo"}
+            </p>
+            <p className="mt-1 font-body text-[12px] text-muted">
+              PNG or JPG, under 2MB.
+            </p>
+          </div>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhoto}
+          className="sr-only"
+        />
+      </div>
 
       <div className="rounded-2xl border-2 border-void bg-surface p-7 shadow-[7px_7px_0_0_var(--color-brut-line)]">
         <p className="font-mono text-xs uppercase tracking-wide text-muted">Handle</p>
