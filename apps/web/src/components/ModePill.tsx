@@ -10,6 +10,10 @@ type Mode = {
 };
 
 const MODES: Mode[] = [
+  // Home first. Without it the switcher could reach every mode except the
+  // dashboard, leaving the wordmark — which doesn't look clickable — as the
+  // only way back.
+  { label: "Home", href: "/home", bgClass: "bg-void-3" },
   { label: "Send", href: "/send", bgClass: "bg-coral" },
   { label: "Split", href: "/split", bgClass: "bg-mint" },
   { label: "Leash", href: "/leash", bgClass: "bg-lav" },
