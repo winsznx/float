@@ -1,6 +1,6 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseClient } from "@/lib/supabase-browser";
 import { readSession } from "@/lib/session";
 import { api } from "@/lib/api";
 
@@ -26,14 +26,8 @@ export async function uploadAvatar(file: File): Promise<string> {
     throw new Error("Images must be under 2MB.");
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) throw new Error("Storage isn't configured.");
-
-  const client = createClient(url, anonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    global: { headers: { Authorization: `Bearer ${session.accessToken}` } },
-  });
+  const client = getSupabaseClient();
+  if (!client) throw new Error("Storage isn't configured.");
 
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
   const path = `${session.userId}/avatar.${extension}`;

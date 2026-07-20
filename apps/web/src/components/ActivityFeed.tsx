@@ -22,6 +22,9 @@ const LABELS: Record<string, string> = {
   pledge_failed: "Pledge missed",
 };
 
+/** Fallback refresh cadence while the realtime socket is unavailable. */
+const POLL_INTERVAL_MS = 15_000;
+
 const ROW_CLASS =
   "flex items-center justify-between gap-3 rounded-md px-4 py-3 transition-colors";
 
@@ -52,6 +55,20 @@ export function ActivityFeed() {
 
     void load();
 
+    // The websocket is not guaranteed to connect — restrictive networks block
+    // it outright, and it was observed failing in the field. Without a
+    // fallback the feed silently shows stale data forever, which looks exactly
+    // like money never arriving. Polling only runs while the socket is down.
+    let poll: ReturnType<typeof setInterval> | null = null;
+    const stopPolling = () => {
+      if (poll) clearInterval(poll);
+      poll = null;
+    };
+    const startPolling = () => {
+      if (poll || cancelled) return;
+      poll = setInterval(() => void load(), POLL_INTERVAL_MS);
+    };
+
     // Realtime honors RLS, so this stream only ever carries the caller's own
     // rows — including the ones the indexer writes when a chain event lands.
     const client = createRealtimeClient();
@@ -60,10 +77,21 @@ export function ActivityFeed() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity" }, () => {
         void load();
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          stopPolling();
+          return;
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          startPolling();
+        }
+      });
+
+    if (!client) startPolling();
 
     return () => {
       cancelled = true;
+      stopPolling();
       if (channel) void client?.removeChannel(channel);
     };
   }, []);

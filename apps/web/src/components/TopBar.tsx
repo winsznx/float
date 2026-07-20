@@ -7,6 +7,9 @@ import { api } from "@/lib/api";
 import { createRealtimeClient } from "@/lib/realtime";
 import { NotificationPanel, type Notification } from "@/components/NotificationPanel";
 
+/** Fallback refresh cadence while the realtime socket is unavailable. */
+const POLL_INTERVAL_MS = 15_000;
+
 export function TopBar() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<Notification[]>([]);
@@ -48,6 +51,18 @@ export function TopBar() {
     };
     window.addEventListener("float:profile", onProfile);
 
+    // Polled only while the socket is down: on networks that block websockets
+    // the badge would otherwise never light up at all.
+    let poll: ReturnType<typeof setInterval> | null = null;
+    const stopPolling = () => {
+      if (poll) clearInterval(poll);
+      poll = null;
+    };
+    const startPolling = () => {
+      if (poll || cancelled) return;
+      poll = setInterval(() => void load(), POLL_INTERVAL_MS);
+    };
+
     // The indexer writes notifications when chain events land, so this has to
     // be live rather than fetched once on mount.
     const client = createRealtimeClient();
@@ -56,10 +71,21 @@ export function TopBar() {
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
         void load();
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          stopPolling();
+          return;
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          startPolling();
+        }
+      });
+
+    if (!client) startPolling();
 
     return () => {
       cancelled = true;
+      stopPolling();
       window.removeEventListener("float:profile", onProfile);
       if (channel) void client?.removeChannel(channel);
     };
