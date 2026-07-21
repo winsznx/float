@@ -71,6 +71,28 @@ export async function getUnifiedBalance(ownerAddress: string): Promise<UnifiedBa
   };
 }
 
+/**
+ * Cheap L2s FLOAT settles on. A recipient who holds value on one of these
+ * should receive here even when they hold *more* on Ethereum: delivering USDC
+ * to Ethereum L1 costs more gas than most transfers are worth, so the highest
+ * balance is the wrong thing to optimise for. Ranked, so a recipient on both
+ * takes whichever holds more.
+ */
+const CHEAP_DELIVERY_CHAINS = ["Base", "Arbitrum"];
+
+/**
+ * Where a transfer to this recipient should land.
+ *
+ * `chains` is value-descending, so the first cheap-chain match is the richest
+ * affordable one. Falls through to the highest-value chain when the recipient
+ * only holds on an expensive one — the client rebuilds on Arbitrum if that
+ * turns out to be unaffordable — and to Arbitrum when they hold nothing yet.
+ */
+function preferredDelivery(chains: ChainBalance[]): string {
+  const cheap = chains.find((c) => CHEAP_DELIVERY_CHAINS.includes(c.chain));
+  return cheap?.chain ?? chains[0]?.chain ?? "Arbitrum";
+}
+
 /** Chains an address holds value on, ranked. Used by identity resolution. */
 export async function chainsHoldingValue(
   ownerAddress: string
@@ -79,9 +101,7 @@ export async function chainsHoldingValue(
     const balance = await getUnifiedBalance(ownerAddress);
     return {
       chains: balance.chains.map((c) => c.chain),
-      // Arbitrum is FLOAT's settlement chain, so it is the fallback when the
-      // recipient holds nothing anywhere yet.
-      preferred: balance.chains[0]?.chain ?? "Arbitrum",
+      preferred: preferredDelivery(balance.chains),
     };
   } catch {
     // Enrichment, not authorization — a lookup failure must not block

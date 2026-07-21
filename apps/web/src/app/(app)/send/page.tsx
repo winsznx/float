@@ -336,7 +336,10 @@ export default function SendPage() {
   // preference: FLOAT can only deliver USDC to chains it has a contract for,
   // and naming one it falls back from is how the card came to promise Base on
   // a transfer that settled on Arbitrum.
-  const destinationChain = destinationChainFor(resolution?.preferredChain).label;
+  // Prefer the quote's chain: fallback can move the destination off the
+  // recipient's preference, and the card must name where the money truly lands.
+  const destinationChain =
+    quote?.destinationChain ?? destinationChainFor(resolution?.preferredChain).label;
 
   const handleResolvedChange = useCallback(
     (next: IdentityResolution | null) => setResolution(next),

@@ -58,7 +58,7 @@ export async function quoteSend({
 
   const ua = createUniversalAccount(session.address);
   const destination = destinationChainFor(recipient.preferredChain);
-  const tx = await createUsdcTransfer(
+  const { tx, destinationChainId } = await createUsdcTransfer(
     ua,
     recipient.resolvedAddress,
     String(amount),
@@ -68,7 +68,9 @@ export async function quoteSend({
   const { sourceChainId } = executedChains(tx);
   return {
     ...quoteOf(tx),
-    destinationChain: destination.label,
+    // The chain actually built for, which fallback may have changed from the
+    // recipient's preference — so the card names where the money really goes.
+    destinationChain: chainLabelFor(destinationChainId),
     sourceChain: sourceChainId === null ? null : chainLabelFor(sourceChainId),
   };
 }
@@ -100,7 +102,7 @@ export async function sendPayment({
     // missing: the destination was pinned to Arbitrum while the UI named
     // whichever chain the recipient actually holds on.
     const destination = destinationChainFor(recipient.preferredChain);
-    const tx = await createUsdcTransfer(
+    const { tx, destinationChainId } = await createUsdcTransfer(
       ua,
       recipient.resolvedAddress,
       String(amount),
@@ -119,7 +121,9 @@ export async function sendPayment({
 
     const executed = executedChains(tx);
     sourceChainId = executed.sourceChainId ?? undefined;
-    destChainId = executed.destChainId ?? destination.id;
+    // The route's own account of where it landed, falling back to the chain we
+    // built for after any fallback — never the original preference.
+    destChainId = executed.destChainId ?? destinationChainId;
   }
 
   const persist = () =>

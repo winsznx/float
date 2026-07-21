@@ -157,29 +157,59 @@ export function destinationChainFor(preferredChain?: string | null): Destination
   return { id, label: CHAIN_LABELS[id] };
 }
 
+export type BuiltTransfer = {
+  tx: ITransaction;
+  /** The chain the transfer was actually built for — may differ from the ask. */
+  destinationChainId: number;
+};
+
+function buildTransfer(
+  ua: UniversalAccount,
+  receiver: string,
+  amount: string,
+  chainId: number
+): Promise<ITransaction> {
+  const address = USDC_BY_CHAIN[chainId];
+  if (!address) {
+    throw new Error(`FLOAT cannot deliver USDC on chain ${chainId}. Use destinationChainFor().`);
+  }
+  return ua.createTransferTransaction({
+    token: { chainId, address },
+    amount,
+    receiver,
+  });
+}
+
 /**
  * Build a cross-chain USDC transfer: sourced from whatever the sender holds
- * anywhere, delivered as USDC on `destinationChainId` to `receiver`. Amount in
- * display units ("50" = $50) — the SDK's ITransferTransaction takes decimal
- * strings.
+ * anywhere, delivered as USDC to `receiver`. Amount in display units ("50" =
+ * $50) — the SDK's ITransferTransaction takes decimal strings.
+ *
+ * The recipient's preferred chain can be one FLOAT can't afford to settle on
+ * for the amount: delivering a couple of dollars to Ethereum L1 costs more in
+ * gas than the transfer itself, which Particle rejects as "insufficient
+ * primary token balance" even when the sender has ample funds on an L2. Rather
+ * than dead-end the send, fall back to Arbitrum — FLOAT's native settlement
+ * chain — and let the caller read the real destination off the result so the
+ * confirmation card never claims a chain the money didn't go to.
  */
 export async function createUsdcTransfer(
   ua: UniversalAccount,
   receiver: string,
   amount: string,
   destinationChainId: number = DEFAULT_DEST_CHAIN_ID
-): Promise<ITransaction> {
-  const address = USDC_BY_CHAIN[destinationChainId];
-  if (!address) {
-    throw new Error(
-      `FLOAT cannot deliver USDC on chain ${destinationChainId}. Use destinationChainFor().`
-    );
+): Promise<BuiltTransfer> {
+  try {
+    return { tx: await buildTransfer(ua, receiver, amount, destinationChainId), destinationChainId };
+  } catch (preferredError) {
+    // Already the default — there is nowhere cheaper to fall back to, so this
+    // is a genuine shortfall and the error is the honest one to surface.
+    if (destinationChainId === DEFAULT_DEST_CHAIN_ID) throw preferredError;
+    return {
+      tx: await buildTransfer(ua, receiver, amount, DEFAULT_DEST_CHAIN_ID),
+      destinationChainId: DEFAULT_DEST_CHAIN_ID,
+    };
   }
-  return ua.createTransferTransaction({
-    token: { chainId: destinationChainId, address },
-    amount,
-    receiver,
-  });
 }
 
 export type TransferQuote = {

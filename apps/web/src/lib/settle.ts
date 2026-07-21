@@ -65,7 +65,7 @@ export async function settleShareOnChain(params: {
   await ensureDelegated(address);
   const ua = createUniversalAccount(address);
   const destination = await organizerDestination(params.organizerAddress);
-  const tx = await createUsdcTransfer(
+  const { tx } = await createUsdcTransfer(
     ua,
     params.organizerAddress,
     String(params.amount),
