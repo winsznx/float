@@ -280,7 +280,7 @@ export function registerLinkRoutes<E extends Env>(app: Hono<E>) {
   app.get("/leash/claim/:token", async (c) => {
     const { data, error } = await serviceDb()
       .from("leashes")
-      .select("id, beneficiary_ref, token, spend_limit, spent, expiry_unix, expiry_tz, revoked, allowed_contracts, contract_scope, onchain_leash_id")
+      .select("id, beneficiary_ref, token, spend_limit, spent, expiry_unix, expiry_tz, revoked, onchain_leash_id")
       .eq("claim_token", c.req.param("token"))
       .maybeSingle();
 

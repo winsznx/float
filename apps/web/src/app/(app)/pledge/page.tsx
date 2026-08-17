@@ -152,6 +152,7 @@ export default function PledgePage() {
   const [pledge, setPledge] = useState<Pledge | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [destinations, setDestinations] = useState<FailureDestination[]>([]);
+  const [witnessLinkCopied, setWitnessLinkCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -285,7 +286,6 @@ export default function PledgePage() {
             value={stakeValue}
             onChange={setStakeValue}
             subtext="USDC at stake"
-            showAdvanced={false}
           />
           <PrimaryButton disabled={stake <= 0} onClick={() => setStep("witness")}>
             Next
@@ -483,6 +483,21 @@ export default function PledgePage() {
             isAtRisk={isPledgeAtRisk(pledge.deadline, pledge.status)}
             shareLink={pledge.shareUrl ?? undefined}
           />
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(pledge.witnessUrl);
+                setWitnessLinkCopied(true);
+                setTimeout(() => setWitnessLinkCopied(false), 2000);
+              } catch {
+                setError("Couldn't copy. The witness link is on the pledge page.");
+              }
+            }}
+            className="w-full rounded-full border-2 border-void bg-surface px-6 py-3 font-body text-sm font-medium text-text shadow-[3px_3px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
+          >
+            {witnessLinkCopied ? "Witness link copied" : "Copy witness link"}
+          </button>
           <Link
             href="/home"
             className="w-full rounded-full border-2 border-void bg-signal px-6 py-4 text-center font-body text-[15px] font-semibold text-void shadow-[5px_5px_0_0_var(--color-brut-line)] transition-all duration-150 hover:translate-x-[5px] hover:translate-y-[5px] hover:shadow-[0_0_0_0_var(--color-brut-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"

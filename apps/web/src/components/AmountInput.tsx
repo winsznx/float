@@ -8,7 +8,6 @@ type AmountInputProps = {
   maxAmount?: number;
   subtext?: string;
   showQuickSelect?: boolean;
-  showAdvanced?: boolean;
 };
 
 export function AmountInput({
@@ -17,7 +16,6 @@ export function AmountInput({
   maxAmount,
   subtext = "USDC from your balance",
   showQuickSelect = true,
-  showAdvanced = true,
 }: AmountInputProps) {
   function handleRawChange(next: string) {
     if (next === "" || /^\d*\.?\d{0,2}$/.test(next)) {
@@ -75,17 +73,6 @@ export function AmountInput({
             </button>
           )}
         </div>
-      )}
-
-      {showAdvanced && (
-        // TODO: wire token selection UI once multi-token sourcing is supported.
-        <button
-          type="button"
-          onClick={() => {}}
-          className="mt-6 font-body text-[12px] text-muted underline-offset-4 hover:text-coral hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-coral)]"
-        >
-          Advanced
-        </button>
       )}
     </div>
   );

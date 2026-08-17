@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // OpenNext build output and wrangler dev state — megabytes of bundled
+    // chunks that OOM eslint and carry generated-code lint noise.
+    ".open-next/**",
+    ".wrangler/**",
+    "open-next.config.ts",
   ]),
 ]);
 

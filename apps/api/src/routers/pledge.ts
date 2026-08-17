@@ -107,6 +107,23 @@ export const pledgeRouter = router({
         tx_hash: input.txHash ?? null,
       });
 
+      // The witness learns about it however they can be reached: an in-app
+      // notification whenever they're a FLOAT user (handle-named witnesses
+      // previously got nothing at all), an email when they're an email.
+      if (witnessUserId) {
+        const { error: witnessNoteError } = await serviceDb().from("notifications").insert({
+          user_id: witnessUserId,
+          type: "witness_request",
+          payload: {
+            goal: input.goal,
+            stake: input.stakeAmount,
+            url: `${env.webOrigin}/witness/${data.witness_token}`,
+          },
+        });
+        if (witnessNoteError) {
+          console.error("witness notification failed", witnessNoteError.message);
+        }
+      }
       if (witnessIsEmail) {
         try {
           await notifyWitness({
@@ -114,7 +131,6 @@ export const pledgeRouter = router({
             goal: input.goal,
             stake: input.stakeAmount,
             token: data.witness_token,
-            userId: witnessUserId,
           });
         } catch (mailError) {
           console.error("witness email failed", getErrorMessage(mailError));

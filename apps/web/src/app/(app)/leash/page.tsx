@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ModePill } from "@/components/ModePill";
 import { ModeHistory } from "@/components/ModeHistory";
@@ -8,12 +8,13 @@ import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { LeashCard } from "@/components/LeashCard";
 import { ErrorNote } from "@/components/ErrorNote";
-import { createLeash, revokeLeash } from "@/lib/leash";
+import { createLeash, revokeLeash, getLeashUsage } from "@/lib/leash";
 import { getErrorMessage } from "@/lib/errors";
 import type { IdentityResolution } from "@/lib/identity";
-import type { ContractScope, Leash } from "@/lib/leash";
+import type { Leash } from "@/lib/leash";
+import { createRealtimeClient } from "@/lib/realtime";
 
-type Step = "beneficiary" | "limit" | "scope" | "expiry" | "review" | "active";
+type Step = "beneficiary" | "limit" | "expiry" | "review" | "active";
 type RevokeState = "idle" | "confirming" | "revoked";
 
 function StepCard({ children }: { children: React.ReactNode }) {
@@ -49,8 +50,6 @@ export default function LeashPage() {
   const [step, setStep] = useState<Step>("beneficiary");
   const [resolution, setResolution] = useState<IdentityResolution | null>(null);
   const [spendLimitValue, setSpendLimitValue] = useState("");
-  const [contractScope, setContractScope] = useState<ContractScope>("basic");
-  const [contractAddress, setContractAddress] = useState("");
   const [expiry, setExpiry] = useState("");
   const [creating, setCreating] = useState(false);
   const [leash, setLeash] = useState<Leash | null>(null);
@@ -59,6 +58,49 @@ export default function LeashPage() {
   const [error, setError] = useState<string | null>(null);
 
   const spendLimit = Number(spendLimitValue) || 0;
+
+  /**
+   * Live usage while a leash is active. The indexer mirrors LeashSpent events
+   * into leash_spends and leashes.spent; realtime delivers them here, with a
+   * poll as the fallback for a blocked socket. Both paths re-read the row —
+   * the event payload is a trigger, never the source of truth.
+   */
+  useEffect(() => {
+    if (step !== "active" || !leash) return;
+
+    let cancelled = false;
+    const refresh = () => {
+      getLeashUsage(leash.id)
+        .then((spent) => {
+          if (!cancelled) setUsed(spent);
+        })
+        .catch(() => {
+          // The bar keeps its last value; the next event or poll retries.
+        });
+    };
+
+    const client = createRealtimeClient();
+    const channel = client
+      ?.channel(`leash-usage-${leash.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "leash_spends", filter: `leash_id=eq.${leash.id}` },
+        refresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "leashes", filter: `id=eq.${leash.id}` },
+        refresh
+      )
+      .subscribe();
+
+    const poll = setInterval(refresh, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+      if (channel) void client?.removeChannel(channel);
+    };
+  }, [step, leash]);
 
   const handleResolvedChange = useCallback(
     (next: IdentityResolution | null) => setResolution(next),
@@ -73,8 +115,6 @@ export default function LeashPage() {
       const result = await createLeash({
         beneficiary: resolution,
         spendLimit,
-        contractScope,
-        contractAddress: contractScope === "advanced" && contractAddress ? contractAddress : null,
         expiry,
       });
       setLeash(result);
@@ -127,71 +167,10 @@ export default function LeashPage() {
             value={spendLimitValue}
             onChange={setSpendLimitValue}
             subtext="USDC spend limit"
-            showAdvanced={false}
           />
-          <PrimaryButton disabled={spendLimit <= 0} onClick={() => setStep("scope")}>
+          <PrimaryButton disabled={spendLimit <= 0} onClick={() => setStep("expiry")}>
             Next
           </PrimaryButton>
-        </StepCard>
-      )}
-
-      {step === "scope" && (
-        <StepCard>
-          <p className="font-mono text-xs uppercase tracking-wide text-muted">
-            Contract scope
-          </p>
-
-          <div className="mt-3 inline-flex self-start gap-2">
-            <button
-              type="button"
-              onClick={() => setContractScope("basic")}
-              className={`rounded-full border-2 border-void px-4 py-2 font-body text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lav)] ${
-                contractScope === "basic"
-                  ? "bg-lav text-void shadow-[3px_3px_0_0_var(--color-brut-line)]"
-                  : "bg-surface text-muted hover:text-text"
-              }`}
-            >
-              Basic
-            </button>
-            <button
-              type="button"
-              onClick={() => setContractScope("advanced")}
-              className={`rounded-full border-2 border-void px-4 py-2 font-body text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lav)] ${
-                contractScope === "advanced"
-                  ? "bg-lav text-void shadow-[3px_3px_0_0_var(--color-brut-line)]"
-                  : "bg-surface text-muted hover:text-text"
-              }`}
-            >
-              Advanced
-            </button>
-          </div>
-
-          <div className="mt-6">
-            {contractScope === "basic" ? (
-              <p className="font-body text-sm text-muted">
-                Any contract, within your limit.
-              </p>
-            ) : (
-              <div>
-                <label htmlFor="contract-address" className="sr-only">
-                  Contract address
-                </label>
-                {/* TODO: wire real contract allowlist logic once LeashManager scoping is defined (see PRD Leash Contract). UI scaffolding only for now. */}
-                <input
-                  id="contract-address"
-                  name="contract-address"
-                  type="text"
-                  autoComplete="off"
-                  value={contractAddress}
-                  onChange={(event) => setContractAddress(event.target.value)}
-                  placeholder="Contract address (optional)"
-                  className="w-full rounded-md border-2 border-void bg-void-3 px-4 py-3 font-mono text-[13px] text-text placeholder:font-body placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lav)]"
-                />
-              </div>
-            )}
-          </div>
-
-          <PrimaryButton onClick={() => setStep("expiry")}>Next</PrimaryButton>
         </StepCard>
       )}
 

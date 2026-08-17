@@ -1,4 +1,5 @@
 import {
+  PREFER_TOKEN_TYPE,
   UniversalAccount,
   type EIP7702Authorization,
   type IAssetsResponse,
@@ -67,6 +68,16 @@ export function createUniversalAccount(ownerAddress: string): UniversalAccount {
     projectClientKey: particleConfig.clientKey,
     projectAppUuid: particleConfig.appUuid,
     rpcUrl: particleRpcUrl(),
+    // Verified against the installed d.ts: tradeConfig is constructor-level
+    // and applies to createTransferTransaction, which takes no per-call
+    // override. Without preferTokenType the router is free to drain volatile
+    // holdings (ETH) to fund a USDC send; without slippageBps there is no
+    // ceiling on routing slippage at all. 100bps is generous for
+    // stable-to-stable routes and a hard stop for anything worse.
+    tradeConfig: {
+      preferTokenType: PREFER_TOKEN_TYPE.USD,
+      slippageBps: 100,
+    },
     smartAccountOptions: {
       name: "UNIVERSAL",
       version: "2.0.1",

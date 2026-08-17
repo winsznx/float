@@ -9,6 +9,7 @@ import { IdentityInput } from "@/components/IdentityInput";
 import { AmountInput } from "@/components/AmountInput";
 import { ErrorNote } from "@/components/ErrorNote";
 import { createSplit, getSplitStatus } from "@/lib/split";
+import { createRealtimeClient } from "@/lib/realtime";
 import { settleShareOnChain } from "@/lib/settle";
 import { readSession } from "@/lib/session";
 import { getErrorMessage } from "@/lib/errors";
@@ -118,18 +119,35 @@ function DashboardStage({
 
   useEffect(() => {
     let cancelled = false;
-    getSplitStatus(splitId)
-      .then((result) => {
-        if (!cancelled) setStatuses(result);
-      })
-      .catch((caught: unknown) => {
-        if (cancelled) return;
-        // Without this the dashboard sits on its loading skeleton forever.
-        setError(getErrorMessage(caught));
-        setLoadFailed(true);
-      });
+    const refresh = (initial = false) => {
+      getSplitStatus(splitId)
+        .then((result) => {
+          if (!cancelled) setStatuses(result);
+        })
+        .catch((caught: unknown) => {
+          if (cancelled || !initial) return;
+          // Without this the dashboard sits on its loading skeleton forever.
+          setError(getErrorMessage(caught));
+          setLoadFailed(true);
+        });
+    };
+    refresh(true);
+
+    // Members settle from their own devices; the organizer's view follows the
+    // verified record the moment it lands, realtime honoring RLS.
+    const client = createRealtimeClient();
+    const channel = client
+      ?.channel(`split-status-${splitId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "split_members", filter: `split_id=eq.${splitId}` },
+        () => refresh()
+      )
+      .subscribe();
+
     return () => {
       cancelled = true;
+      if (channel) void client?.removeChannel(channel);
     };
   }, [splitId]);
 
@@ -407,7 +425,6 @@ export default function SplitPage() {
               onChange={setTotalValue}
               subtext="Total in USDC"
               showQuickSelect={false}
-              showAdvanced={false}
             />
           </div>
 

@@ -4,16 +4,12 @@ import { signUniversalTransaction } from "@/lib/chain/signer";
 import { readSession } from "@/lib/session";
 import type { IdentityResolution } from "@/lib/identity";
 
-export type ContractScope = "basic" | "advanced";
-
 export type Leash = {
   id: string;
   leashId: string;
   beneficiary: string;
   spendLimit: number;
   spent: number;
-  contractScope: ContractScope;
-  contractAddress: string | null;
   expiry: string;
   claimUrl: string;
 };
@@ -21,8 +17,6 @@ export type Leash = {
 type CreateLeashParams = {
   beneficiary: IdentityResolution;
   spendLimit: number;
-  contractScope: ContractScope;
-  contractAddress: string | null;
   expiry: string;
 };
 
@@ -37,8 +31,6 @@ function endOfDayUnix(date: string): number {
 export async function createLeash({
   beneficiary,
   spendLimit,
-  contractScope,
-  contractAddress,
   expiry,
 }: CreateLeashParams): Promise<Leash> {
   const session = readSession();
@@ -60,8 +52,6 @@ export async function createLeash({
   const row = await api.leash.create.mutate({
     beneficiary: beneficiary.input,
     spendLimit,
-    contractScope,
-    allowedContracts: contractAddress ? [contractAddress] : [],
     expiryDate: expiry,
     // The deadline is end-of-day in the creator's zone, resolved server-side.
     timezone: browserTimeZone(),
@@ -74,8 +64,6 @@ export async function createLeash({
     beneficiary: row.beneficiary_ref,
     spendLimit: row.spend_limit,
     spent: row.spent,
-    contractScope: row.contract_scope as ContractScope,
-    contractAddress: row.allowed_contracts?.[0] ?? null,
     expiry,
     claimUrl: row.claimUrl,
   };

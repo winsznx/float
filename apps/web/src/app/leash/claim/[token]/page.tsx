@@ -25,7 +25,6 @@ type LeashView = {
   expiry_unix: number | null;
   expiry_tz: string | null;
   revoked: boolean;
-  contract_scope: string;
   onchain_leash_id: string | null;
 };
 

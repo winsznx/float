@@ -121,6 +121,13 @@ export default function PublicPledgePage({ params }: { params: Promise<{ id: str
       >
         Put something on the line
       </Link>
+
+      <Link
+        href="/pledges"
+        className="text-center font-body text-[13px] font-medium text-muted underline-offset-4 hover:text-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+      >
+        See every public pledge
+      </Link>
     </main>
   );
 }

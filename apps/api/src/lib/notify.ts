@@ -1,6 +1,5 @@
 import { Resend } from "resend";
 import { env } from "./env.js";
-import { serviceDb } from "./supabase.js";
 
 // Verified against resend@6.17.2: new Resend(key).emails.send({from,to,subject,html})
 let client: Resend | null = null;
@@ -21,14 +20,6 @@ ${
     : ""
 }
 </div></body></html>`;
-}
-
-/** Records the notification in Postgres, then attempts delivery. */
-async function record(userId: string | null, type: string, payload: Record<string, unknown>) {
-  if (!userId) return;
-  await serviceDb()
-    .from("notifications")
-    .insert({ user_id: userId, type, payload: payload as never });
 }
 
 export async function notifyClaim(params: {
@@ -93,10 +84,8 @@ export async function notifyWitness(params: {
   goal: string;
   stake: number;
   token: string;
-  userId?: string | null;
 }): Promise<void> {
   const url = `${env.webOrigin}/witness/${params.token}`;
-  await record(params.userId ?? null, "witness_request", { goal: params.goal, stake: params.stake });
   await resend().emails.send({
     from: env.emailFrom,
     to: [params.email],
