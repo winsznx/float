@@ -1,0 +1,16 @@
+// FLOAT indexer — Durable Object alarm metronome + cron watchdog.
+// The cursor lives in indexer_state (Supabase), never in the DO, so a cold
+// start is the standard backfill-from-cursor path.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "float-indexer",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-08-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [{ "name": "INDEXER_LOOP", "class_name": "IndexerLoop" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["IndexerLoop"] }],
+  "triggers": { "crons": ["* * * * *"] }
+}

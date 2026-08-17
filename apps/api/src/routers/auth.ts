@@ -2,7 +2,6 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "../trpc.js";
 import { verifyMagicToken, mintSession } from "../lib/auth.js";
-import { issueNonce, consumeNonce } from "../lib/nonce.js";
 import { verifyMessage, isAddress } from "viem";
 import { checkHandleAvailability } from "../lib/identity.js";
 import { getErrorMessage } from "../lib/errors.js";
@@ -33,7 +32,7 @@ export const authRouter = router({
   /** Issues a single-use nonce for wallet sign-in. */
   walletNonce: publicProcedure
     .input(z.object({ address: z.string().refine(isAddress, "Not a valid address") }))
-    .mutation(({ input }) => issueNonce(input.address)),
+    .mutation(({ ctx, input }) => ctx.nonces.issue(input.address)),
 
   /**
    * Existing-wallet sign-in. The signature is verified against the exact
@@ -48,8 +47,8 @@ export const authRouter = router({
         signature: z.string().regex(/^0x[a-fA-F0-9]+$/),
       })
     )
-    .mutation(async ({ input }) => {
-      const message = consumeNonce(input.address, input.nonce);
+    .mutation(async ({ ctx, input }) => {
+      const message = await ctx.nonces.consume(input.address, input.nonce);
       if (!message) {
         throw new TRPCError({
           code: "UNAUTHORIZED",

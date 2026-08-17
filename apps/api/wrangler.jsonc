@@ -1,0 +1,26 @@
+// FLOAT API — Hono on Cloudflare Workers.
+//
+// Secrets (wrangler secret put / .dev.vars locally) carry everything env.ts
+// reads; nodejs_compat populates process.env from bindings so the lib layer
+// is platform-agnostic. Rate limiting and login nonces are Durable Objects:
+// the platform's ratelimit binding is per-colo approximate, and the delegate
+// endpoint spends sponsor gas per allowed request, so counting must be
+// globally consistent (one small SQLite DO per bucket+key, sharded, never a
+// global funnel).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "float-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-08-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [
+      { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
+      { "name": "LOGIN_NONCES", "class_name": "LoginNonces" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RateLimiter", "LoginNonces"] }
+  ]
+}

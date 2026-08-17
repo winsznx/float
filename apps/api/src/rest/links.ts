@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { Hono, Env } from "hono";
 import { serviceDb } from "../lib/supabase.js";
 import { getErrorMessage } from "../lib/errors.js";
 import { findSettleTransfer } from "../lib/settle-verify.js";
@@ -12,18 +12,18 @@ import { findSettleTransfer } from "../lib/settle-verify.js";
  * fields that link is entitled to see — never the whole row, and never
  * anything belonging to another user.
  */
-export function registerLinkRoutes(app: FastifyInstance) {
+export function registerLinkRoutes<E extends Env>(app: Hono<E>) {
   /** Split settle link. */
-  app.get<{ Params: { token: string } }>("/settle/:token", async (req, reply) => {
+  app.get("/settle/:token", async (c) => {
     const db = serviceDb();
     const { data, error } = await db
       .from("splits")
       .select("id, name, total_amount, token, status, organizer_id, split_members(id, member_ref, share_amount, settled)")
-      .eq("share_link_token", req.params.token)
+      .eq("share_link_token", c.req.param("token"))
       .maybeSingle();
 
     if (error || !data) {
-      return reply.code(404).send({ error: "This link is no longer valid." });
+      return c.json({ error: "This link is no longer valid." }, 404);
     }
 
     // Members settle by paying the organizer directly, so the link has to
@@ -35,11 +35,11 @@ export function registerLinkRoutes(app: FastifyInstance) {
       .maybeSingle();
 
     const { organizer_id: _omitted, ...split } = data;
-    return {
+    return c.json({
       ...split,
       organizerAddress: organizer?.address ?? null,
       organizerHandle: organizer?.handle ?? null,
-    };
+    });
   });
 
   /**
@@ -48,105 +48,106 @@ export function registerLinkRoutes(app: FastifyInstance) {
    * so the proof is a USDC Transfer log to the organizer for the share; the
    * hash recorded is the one found on-chain, never the one the client sent.
    */
-  app.post<{ Params: { token: string }; Body: { memberId: string; txHash: string } }>(
-    "/settle/:token",
-    async (req, reply) => {
-      const { memberId, txHash } = req.body ?? ({} as never);
-      if (!memberId || !/^0x[a-fA-F0-9]+$/.test(txHash ?? "")) {
-        return reply.code(400).send({ error: "memberId and txHash are required." });
-      }
-
-      const db = serviceDb();
-      const { data: split } = await db
-        .from("splits")
-        .select("id, organizer_id, split_members(id, share_amount, settled, settle_tx_hash)")
-        .eq("share_link_token", req.params.token)
-        .maybeSingle();
-      if (!split) return reply.code(404).send({ error: "This link is no longer valid." });
-
-      const member = split.split_members.find((m) => m.id === memberId);
-      if (!member) return reply.code(404).send({ error: "That member isn't part of this split." });
-
-      // A record retry after success is a no-op, not an error: the money
-      // moved once and the row already says so.
-      if (member.settled) {
-        const { data: row } = await db
-          .from("split_members")
-          .select()
-          .eq("id", memberId)
-          .single();
-        return row;
-      }
-
-      const { data: organizer } = await db
-        .from("users")
-        .select("address")
-        .eq("id", split.organizer_id)
-        .maybeSingle();
-      if (!organizer?.address) {
-        return reply.code(409).send({ error: "The organizer has no address to verify against." });
-      }
-
-      // Each found hash settles at most one share of this split.
-      const usedHashes = new Set(
-        split.split_members
-          .map((m) => m.settle_tx_hash?.toLowerCase())
-          .filter((h): h is string => !!h)
-      );
-      const proof = await findSettleTransfer({
-        organizer: organizer.address as `0x${string}`,
-        amountUsd: member.share_amount,
-        excludeTxHashes: usedHashes,
-      });
-      if (!proof) {
-        return reply.code(409).send({
-          error: "The transfer hasn't been seen on-chain yet.",
-          retryable: true,
-        });
-      }
-
-      // Scoped to this split, so a leaked token cannot settle someone else's.
-      const { data, error } = await db
-        .from("split_members")
-        .update({
-          settled: true,
-          settle_tx_hash: proof.txHash,
-          settled_at: new Date().toISOString(),
-        })
-        .eq("id", memberId)
-        .eq("split_id", split.id)
-        .select()
-        .single();
-      if (error) return reply.code(400).send({ error: getErrorMessage(error) });
-
-      // Close the split once everyone has paid.
-      const { data: remaining } = await db
-        .from("split_members")
-        .select("id")
-        .eq("split_id", split.id)
-        .eq("settled", false);
-      if ((remaining?.length ?? 0) === 0) {
-        await db.from("splits").update({ status: "settled" }).eq("id", split.id);
-      }
-
-      return data;
+  app.post("/settle/:token", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as {
+      memberId?: string;
+      txHash?: string;
+    };
+    const { memberId, txHash } = body;
+    if (!memberId || !/^0x[a-fA-F0-9]+$/.test(txHash ?? "")) {
+      return c.json({ error: "memberId and txHash are required." }, 400);
     }
-  );
+
+    const db = serviceDb();
+    const { data: split } = await db
+      .from("splits")
+      .select("id, organizer_id, split_members(id, share_amount, settled, settle_tx_hash)")
+      .eq("share_link_token", c.req.param("token"))
+      .maybeSingle();
+    if (!split) return c.json({ error: "This link is no longer valid." }, 404);
+
+    const member = split.split_members.find((m) => m.id === memberId);
+    if (!member) return c.json({ error: "That member isn't part of this split." }, 404);
+
+    // A record retry after success is a no-op, not an error: the money
+    // moved once and the row already says so.
+    if (member.settled) {
+      const { data: row } = await db
+        .from("split_members")
+        .select()
+        .eq("id", memberId)
+        .single();
+      return c.json(row);
+    }
+
+    const { data: organizer } = await db
+      .from("users")
+      .select("address")
+      .eq("id", split.organizer_id)
+      .maybeSingle();
+    if (!organizer?.address) {
+      return c.json({ error: "The organizer has no address to verify against." }, 409);
+    }
+
+    // Each found hash settles at most one share of this split.
+    const usedHashes = new Set(
+      split.split_members
+        .map((m) => m.settle_tx_hash?.toLowerCase())
+        .filter((h): h is string => !!h)
+    );
+    const proof = await findSettleTransfer({
+      organizer: organizer.address as `0x${string}`,
+      amountUsd: member.share_amount,
+      excludeTxHashes: usedHashes,
+    });
+    if (!proof) {
+      return c.json(
+        { error: "The transfer hasn't been seen on-chain yet.", retryable: true },
+        409
+      );
+    }
+
+    // Scoped to this split, so a leaked token cannot settle someone else's.
+    const { data, error } = await db
+      .from("split_members")
+      .update({
+        settled: true,
+        settle_tx_hash: proof.txHash,
+        settled_at: new Date().toISOString(),
+      })
+      .eq("id", memberId)
+      .eq("split_id", split.id)
+      .select()
+      .single();
+    if (error) return c.json({ error: getErrorMessage(error) }, 400);
+
+    // Close the split once everyone has paid.
+    const { data: remaining } = await db
+      .from("split_members")
+      .select("id")
+      .eq("split_id", split.id)
+      .eq("settled", false);
+    if ((remaining?.length ?? 0) === 0) {
+      await db.from("splits").update({ status: "settled" }).eq("id", split.id);
+    }
+
+    return c.json(data);
+  });
 
   /**
    * Claim view for a send to someone with no FLOAT account. The claim token is
    * generated per send; the sender's identity is not exposed beyond a handle.
    */
-  app.get<{ Params: { token: string } }>("/claim/:token", async (req, reply) => {
+  app.get("/claim/:token", async (c) => {
     const db = serviceDb();
     const { data, error } = await db
       .from("sends")
       .select("id, amount, token, note, status, claimed_at, recipient_input, sender_id")
-      .eq("claim_token", req.params.token)
+      .eq("claim_token", c.req.param("token"))
       .maybeSingle();
 
     if (error || !data) {
-      return reply.code(404).send({ error: "This link is no longer valid." });
+      return c.json({ error: "This link is no longer valid." }, 404);
     }
 
     const { data: sender } = await db
@@ -156,7 +157,7 @@ export function registerLinkRoutes(app: FastifyInstance) {
       .maybeSingle();
 
     const { sender_id: _omitted, ...send } = data;
-    return { ...send, senderHandle: sender?.handle ?? null };
+    return c.json({ ...send, senderHandle: sender?.handle ?? null });
   });
 
   /**
@@ -170,16 +171,16 @@ export function registerLinkRoutes(app: FastifyInstance) {
    * without touching the send. Returns only what a receipt shows — no
    * addresses, no claim token, nothing about the sender beyond their handle.
    */
-  app.get<{ Params: { token: string } }>("/receipt/:token", async (req, reply) => {
+  app.get("/receipt/:token", async (c) => {
     const db = serviceDb();
     const { data, error } = await db
       .from("sends")
       .select("amount, token, note, status, recipient_input, recipient_type, tx_hash, created_at, sender_id")
-      .eq("share_token", req.params.token)
+      .eq("share_token", c.req.param("token"))
       .maybeSingle();
 
     if (error || !data) {
-      return reply.code(404).send({ error: "This receipt is no longer available." });
+      return c.json({ error: "This receipt is no longer available." }, 404);
     }
 
     const { data: sender } = await db
@@ -189,59 +190,57 @@ export function registerLinkRoutes(app: FastifyInstance) {
       .maybeSingle();
 
     const { sender_id: _omitted, ...receipt } = data;
-    return {
+    return c.json({
       ...receipt,
       senderHandle: sender?.handle ?? null,
       senderAvatarUrl: sender?.avatar_url ?? null,
-    };
+    });
   });
 
   /** Marks a send claimed once the recipient has a wallet. */
-  app.post<{ Params: { token: string }; Body: { address: string } }>(
-    "/claim/:token",
-    async (req, reply) => {
-      const address = req.body?.address;
-      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        return reply.code(400).send({ error: "A wallet address is required." });
-      }
-
-      const db = serviceDb();
-      const { data: send } = await db
-        .from("sends")
-        .select("id, claimed_at")
-        .eq("claim_token", req.params.token)
-        .maybeSingle();
-      if (!send) return reply.code(404).send({ error: "This link is no longer valid." });
-      if (send.claimed_at) {
-        return reply.code(409).send({ error: "This was already claimed." });
-      }
-
-      const { data, error } = await db
-        .from("sends")
-        .update({
-          recipient_address: address.toLowerCase(),
-          claimed_at: new Date().toISOString(),
-        })
-        .eq("id", send.id)
-        .select("id, amount, token, claimed_at")
-        .single();
-      if (error) return reply.code(400).send({ error: getErrorMessage(error) });
-
-      return data;
+  app.post("/claim/:token", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { address?: string };
+    const address = body.address;
+    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      return c.json({ error: "A wallet address is required." }, 400);
     }
-  );
+
+    const db = serviceDb();
+    const { data: send } = await db
+      .from("sends")
+      .select("id, claimed_at")
+      .eq("claim_token", c.req.param("token"))
+      .maybeSingle();
+    if (!send) return c.json({ error: "This link is no longer valid." }, 404);
+    if (send.claimed_at) {
+      return c.json({ error: "This was already claimed." }, 409);
+    }
+
+    const { data, error } = await db
+      .from("sends")
+      .update({
+        recipient_address: address.toLowerCase(),
+        claimed_at: new Date().toISOString(),
+      })
+      .eq("id", send.id)
+      .select("id, amount, token, claimed_at")
+      .single();
+    if (error) return c.json({ error: getErrorMessage(error) }, 400);
+
+    return c.json(data);
+  });
 
   /** Public pledge, for the shareable accountability card. */
-  app.get<{ Params: { id: string } }>("/pledge/:id", async (req, reply) => {
+  app.get("/pledge/:id", async (c) => {
     const db = serviceDb();
     const { data, error } = await db
       .from("pledges")
       .select("id, goal, stake_amount, token, deadline_unix, status, failure_destination_label, is_public, pledger_id")
-      .eq("id", req.params.id)
+      .eq("id", c.req.param("id"))
       .maybeSingle();
 
     if (error || !data || !data.is_public) {
-      return reply.code(404).send({ error: "This pledge isn't public." });
+      return c.json({ error: "This pledge isn't public." }, 404);
     }
 
     const { data: pledger } = await db
@@ -251,38 +250,38 @@ export function registerLinkRoutes(app: FastifyInstance) {
       .maybeSingle();
 
     const { pledger_id: _omitted, ...pledge } = data;
-    return { ...pledge, pledgerHandle: pledger?.handle ?? null };
+    return c.json({ ...pledge, pledgerHandle: pledger?.handle ?? null });
   });
 
   /** Leash beneficiary claim view. */
-  app.get<{ Params: { token: string } }>("/leash/claim/:token", async (req, reply) => {
+  app.get("/leash/claim/:token", async (c) => {
     const { data, error } = await serviceDb()
       .from("leashes")
       .select("id, beneficiary_ref, token, spend_limit, spent, expiry_unix, expiry_tz, revoked, allowed_contracts, contract_scope, onchain_leash_id")
-      .eq("claim_token", req.params.token)
+      .eq("claim_token", c.req.param("token"))
       .maybeSingle();
 
     if (error || !data) {
-      return reply.code(404).send({ error: "This link is no longer valid." });
+      return c.json({ error: "This link is no longer valid." }, 404);
     }
     if (data.revoked) {
-      return reply.code(410).send({ error: "Access was removed.", revoked: true });
+      return c.json({ error: "Access was removed.", revoked: true }, 410);
     }
-    return { ...data, remaining: Math.max(0, data.spend_limit - data.spent) };
+    return c.json({ ...data, remaining: Math.max(0, data.spend_limit - data.spent) });
   });
 
   /** Witness view of a pledge. */
-  app.get<{ Params: { token: string } }>("/witness/:token", async (req, reply) => {
+  app.get("/witness/:token", async (c) => {
     const { data, error } = await serviceDb()
       .from("pledges")
       .select("id, goal, stake_amount, token, deadline_unix, deadline_tz, status, failure_destination_label, onchain_pledge_id")
-      .eq("witness_token", req.params.token)
+      .eq("witness_token", c.req.param("token"))
       .maybeSingle();
 
     if (error || !data) {
-      return reply.code(404).send({ error: "This link is no longer valid." });
+      return c.json({ error: "This link is no longer valid." }, 404);
     }
-    return data;
+    return c.json(data);
   });
 
   /**
@@ -290,46 +289,47 @@ export function registerLinkRoutes(app: FastifyInstance) {
    * on-chain call is made by the witness in their browser and the hash is
    * required here — the API records the outcome, it never decides it.
    */
-  app.post<{ Params: { token: string }; Body: { verdict: "success" | "failure"; txHash: string } }>(
-    "/witness/:token",
-    async (req, reply) => {
-      const { verdict, txHash } = req.body ?? ({} as never);
-      if (verdict !== "success" && verdict !== "failure") {
-        return reply.code(400).send({ error: "verdict must be success or failure." });
-      }
-      if (!/^0x[a-fA-F0-9]+$/.test(txHash ?? "")) {
-        return reply.code(400).send({ error: "txHash is required." });
-      }
-
-      const db = serviceDb();
-      const { data: pledge } = await db
-        .from("pledges")
-        .select("id, status")
-        .eq("witness_token", req.params.token)
-        .maybeSingle();
-      if (!pledge) return reply.code(404).send({ error: "This link is no longer valid." });
-      if (pledge.status !== "locked") {
-        return reply.code(409).send({ error: "This pledge was already resolved." });
-      }
-
-      const { data, error } = await db
-        .from("pledges")
-        .update({
-          status: verdict === "success" ? "succeeded" : "failed",
-          resolved_at: new Date().toISOString(),
-        })
-        .eq("id", pledge.id)
-        .select()
-        .single();
-      if (error) return reply.code(400).send({ error: getErrorMessage(error) });
-
-      await db.from("pledge_events").insert({
-        pledge_id: pledge.id,
-        event_type: verdict === "success" ? "witness_confirmed_success" : "witness_confirmed_failure",
-        tx_hash: txHash,
-      });
-
-      return data;
+  app.post("/witness/:token", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as {
+      verdict?: "success" | "failure";
+      txHash?: string;
+    };
+    const { verdict, txHash } = body;
+    if (verdict !== "success" && verdict !== "failure") {
+      return c.json({ error: "verdict must be success or failure." }, 400);
     }
-  );
+    if (!/^0x[a-fA-F0-9]+$/.test(txHash ?? "")) {
+      return c.json({ error: "txHash is required." }, 400);
+    }
+
+    const db = serviceDb();
+    const { data: pledge } = await db
+      .from("pledges")
+      .select("id, status")
+      .eq("witness_token", c.req.param("token"))
+      .maybeSingle();
+    if (!pledge) return c.json({ error: "This link is no longer valid." }, 404);
+    if (pledge.status !== "locked") {
+      return c.json({ error: "This pledge was already resolved." }, 409);
+    }
+
+    const { data, error } = await db
+      .from("pledges")
+      .update({
+        status: verdict === "success" ? "succeeded" : "failed",
+        resolved_at: new Date().toISOString(),
+      })
+      .eq("id", pledge.id)
+      .select()
+      .single();
+    if (error) return c.json({ error: getErrorMessage(error) }, 400);
+
+    await db.from("pledge_events").insert({
+      pledge_id: pledge.id,
+      event_type: verdict === "success" ? "witness_confirmed_success" : "witness_confirmed_failure",
+      tx_hash: txHash,
+    });
+
+    return c.json(data);
+  });
 }

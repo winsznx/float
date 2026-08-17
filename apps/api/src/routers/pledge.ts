@@ -5,7 +5,7 @@ import { resolveIdentity } from "../lib/identity.js";
 import { serviceDb } from "../lib/supabase.js";
 import { notifyWitness } from "../lib/notify.js";
 import { endOfDayUnix } from "../lib/time.js";
-import { FAILURE_DESTINATIONS, resolveDestination } from "../lib/destinations.js";
+import { listDestinations, resolveDestination } from "../lib/destinations.js";
 import { env } from "../lib/env.js";
 import { getErrorMessage } from "../lib/errors.js";
 
@@ -19,7 +19,9 @@ function publicShareUrl(id: string, isPublic: boolean): string | null {
 
 export const pledgeRouter = router({
   /** Curated failure destinations, with the addresses the contract will use. */
-  destinations: publicProcedure.query(() => FAILURE_DESTINATIONS),
+  // Lazy, not a module constant: on Workers env lands per isolate, and a
+  // list captured at import time would pin every destination unavailable.
+  destinations: publicProcedure.query(() => listDestinations()),
 
   create: protectedProcedure
     .input(

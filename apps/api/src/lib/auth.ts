@@ -90,12 +90,22 @@ export async function mintSession(
 
   if (created?.user) {
     userId = created.user.id;
-  } else if (createError) {
-    // Already registered — look them up and refresh their metadata.
-    const { data: list } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const existing = list?.users.find((u) => u.email === authEmail);
-    if (!existing) throw createError;
-    userId = existing.id;
+  }
+
+  // generateLink returns the auth user alongside the token hash, which is
+  // what resolves an already-registered subject without scanning listUsers —
+  // a scan that silently breaks at the page size.
+  const { data: link, error: linkError } = await db.auth.admin.generateLink({
+    type: "magiclink",
+    email: authEmail,
+  });
+  if (linkError || !link.properties?.hashed_token) {
+    throw linkError ?? new Error("Supabase returned no token hash");
+  }
+
+  if (!userId) {
+    if (!link.user?.id) throw createError ?? new Error("could not resolve an auth user");
+    userId = link.user.id;
     await db.auth.admin.updateUserById(userId, {
       user_metadata: {
         wallet_address: normalized,
@@ -103,16 +113,6 @@ export async function mintSession(
         contact_email: meta.email ?? null,
       },
     });
-  }
-
-  if (!userId) throw new Error("could not resolve an auth user for this address");
-
-  const { data: link, error: linkError } = await db.auth.admin.generateLink({
-    type: "magiclink",
-    email: authEmail,
-  });
-  if (linkError || !link.properties?.hashed_token) {
-    throw linkError ?? new Error("Supabase returned no token hash");
   }
 
   const anon = (await import("@supabase/supabase-js")).createClient(

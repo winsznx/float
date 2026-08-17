@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { Hono, Env } from "hono";
 
 /**
  * Proxy for Particle's Universal Account RPC.
@@ -10,7 +10,7 @@ import type { FastifyInstance } from "fastify";
  * retry its way out of.
  *
  * Routing through our own host fixes it for everyone on a restricted network:
- * the browser talks to us, and we talk to Particle from a datacentre that can
+ * the browser talks to us, and we talk to Particle from an edge that can
  * resolve it.
  *
  * The request body already carries the project credentials the SDK puts there,
@@ -24,30 +24,34 @@ const PARTICLE_RPC = "https://universal-rpc-proxy.particle.network";
 // a client-side timeout with nothing in it.
 const TIMEOUT_MS = 12_000;
 
-export function registerParticleProxy(app: FastifyInstance) {
-  app.post("/", async (req, reply) => {
+export function registerParticleProxy<E extends Env>(app: Hono<E>) {
+  app.post("/", async (c) => {
     try {
+      const body = await c.req.json().catch(() => ({}));
       const upstream = await fetch(PARTICLE_RPC, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req.body ?? {}),
+        body: JSON.stringify(body ?? {}),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
 
       const payload = await upstream.text();
-      return reply
-        .code(upstream.status)
-        .header("Content-Type", "application/json")
-        .send(payload);
+      return new Response(payload, {
+        status: upstream.status,
+        headers: { "Content-Type": "application/json" },
+      });
     } catch (error) {
-      req.log.error({ err: error }, "particle proxy failed");
+      console.error("particle proxy failed", error);
       // Shaped like a JSON-RPC error so the SDK surfaces it as one rather than
       // choking on an unexpected body.
-      return reply.code(502).send({
-        jsonrpc: "2.0",
-        id: null,
-        error: { code: -32603, message: "Couldn't reach the account service." },
-      });
+      return c.json(
+        {
+          jsonrpc: "2.0",
+          id: null,
+          error: { code: -32603, message: "Couldn't reach the account service." },
+        },
+        502
+      );
     }
   });
 }

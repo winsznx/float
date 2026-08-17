@@ -47,6 +47,7 @@ const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_RO
 const ADDRESS = account.address.toLowerCase();
 const authEmail = `${ADDRESS}@wallet.float.local`;
 let userId = null;
+const createdSplitIds = [];
 
 async function trpcMutation(path, token, input) {
   const res = await fetch(`${API}/trpc/${path}`, {
@@ -92,7 +93,9 @@ try {
   // A1 live proof: a dust-sized equal split. The per-head cent amount is
   // varied per run so a leftover transfer from an earlier run (still inside
   // the sweep window) cannot corroborate this run's shares.
-  const headCents = 2 + (Date.now() % 7);
+  // Minute-derived so consecutive runs use different amounts and a leftover
+  // transfer from an earlier run can't corroborate this run's shares.
+  const headCents = 2 + (Math.floor(Date.now() / 60_000) % 11);
   const headUsd = headCents / 100;
   const totalUsd = (headCents * 3) / 100;
   const split = await trpcMutation("split.create", token, {
@@ -104,6 +107,7 @@ try {
       { ref: "dwr", shareAmount: headUsd },
     ],
   });
+  if (split?.id) createdSplitIds.push(split.id);
   check(`A1: $${totalUsd.toFixed(2)} equal split accepted at $${headUsd.toFixed(2)} a head`, split?.members?.length === 2, split?.id);
 
   const shareToken = split.shareUrl.split("/").pop();
@@ -127,7 +131,20 @@ try {
       body: JSON.stringify({ memberId: memberId, txHash: `0x${"ab".repeat(32)}` }),
     });
 
-  const r1 = await settle(m1.id);
+  // The sweep's logs RPC can trail the receipt by a few seconds, so retry the
+  // record phase exactly like the real client does on a retryable 409.
+  const settleWithRetry = async (memberId) => {
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const res = await settle(memberId);
+      if (res.status !== 409) return res;
+      const body = await res.clone().json();
+      if (!body?.retryable) return res;
+      await new Promise((r) => setTimeout(r, 4000));
+    }
+    return settle(memberId);
+  };
+
+  const r1 = await settleWithRetry(m1.id);
   const row1 = await r1.json();
   check("A2: settle recorded once the chain corroborates", r1.status === 200 && row1?.settled === true);
   check(
@@ -150,7 +167,11 @@ try {
 } catch (error) {
   check(`unexpected: ${error.message}`, false);
 } finally {
-  if (userId) await admin.auth.admin.deleteUser(userId);
+  // Remove only the splits this run created — deleting the auth user would
+  // cascade every row that identity owns, including real linked pledges.
+  for (const id of createdSplitIds) {
+    await admin.from("splits").delete().eq("id", id);
+  }
 }
 
 console.log(failures === 0 ? "\nPASS — Gate A runtime proofs hold" : `\n${failures} FAILED`);

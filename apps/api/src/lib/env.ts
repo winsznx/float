@@ -1,11 +1,5 @@
-import { config } from "dotenv";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-
-// Load the repo-root .env.local in development. On Railway the variables are
-// already in the environment, so a missing file is not an error.
-config({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../../../../.env.local") });
-
+// No dotenv: on Workers, bindings and secrets populate process.env
+// (nodejs_compat), and local dev reads apps/api/.dev.vars via wrangler.
 function required(name: string): string {
   const value = process.env[name];
   if (!value) {

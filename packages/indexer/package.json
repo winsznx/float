@@ -17,8 +17,10 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsc --watch --preserveWatchOutput & node --watch dist/index.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
+    "cf-typegen": "wrangler types",
     "verify": "node scripts/verify-indexer.mjs"
   }
 }

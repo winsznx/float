@@ -8,9 +8,9 @@ A chain-abstracted social money layer. Four modes (Send · Split · Leash · Ple
 
 ```
 apps/web         Next.js frontend (built — do not rewrite or downgrade)
-apps/api         backend API (Railway)            [phase 4]
+apps/api         backend API — Hono on Cloudflare Workers [phase 4]
 packages/contracts  Solidity + Hardhat (Arbitrum) [phase 2]
-packages/indexer    viem event worker (Railway)   [phase 5]
+packages/indexer    viem event worker — Cloudflare DO alarm [phase 5]
 packages/db         Supabase schema, migrations, generated types [phase 1]
 internal/        PRD + strategy notes — gitignored, never commit
 ```

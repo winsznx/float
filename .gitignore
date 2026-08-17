@@ -62,3 +62,6 @@ dist/
 # playwright
 test-results/
 playwright-report/
+.dev.vars*
+.wrangler/
+worker-configuration.d.ts

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { Hono, Env } from "hono";
 import {
   createPublicClient,
   createWalletClient,
@@ -52,10 +52,11 @@ const DELEGATED_PREFIX = "0xef0100";
  */
 const DELEGATION_GAS = 150_000n;
 
-const publicClient = createPublicClient({
-  chain: CHAIN,
-  transport: http(env.arbitrumRpcUrl),
-});
+// Lazy, not module-scope: bindings populate process.env per isolate, and a
+// client captured at import time could pin the fallback RPC forever.
+function publicClient() {
+  return createPublicClient({ chain: CHAIN, transport: http(env.arbitrumRpcUrl) });
+}
 
 type DelegateBody = {
   address?: string;
@@ -68,7 +69,7 @@ type DelegateBody = {
 };
 
 async function isDelegated(address: `0x${string}`): Promise<boolean> {
-  const code = await publicClient.getCode({ address });
+  const code = await publicClient().getCode({ address });
   return !!code && code.toLowerCase().startsWith(DELEGATED_PREFIX);
 }
 
@@ -83,48 +84,49 @@ async function expectedImplementation(address: string): Promise<string | null> {
   return target ? getAddress(target) : null;
 }
 
-export function registerDelegateRoutes(app: FastifyInstance) {
+export function registerDelegateRoutes<E extends Env>(app: Hono<E>) {
   /**
    * What to sign. The nonce comes from the chain rather than the caller: the
    * signature commits to it, so a stale value produces an authorization that is
    * silently ignored rather than an error anyone can see.
    */
-  app.get<{ Params: { address: string } }>("/:address", async (req, reply) => {
-    if (!isAddress(req.params.address)) {
-      return reply.code(400).send({ error: "Not a valid address." });
+  app.get("/:address", async (c) => {
+    const raw = c.req.param("address");
+    if (!isAddress(raw)) {
+      return c.json({ error: "Not a valid address." }, 400);
     }
-    const address = getAddress(req.params.address);
+    const address = getAddress(raw);
 
     try {
       const [delegated, implementation, nonce] = await Promise.all([
         isDelegated(address),
         expectedImplementation(address),
-        publicClient.getTransactionCount({ address }),
+        publicClient().getTransactionCount({ address }),
       ]);
 
       if (!implementation) {
-        return reply.code(502).send({ error: "Couldn't prepare your account for upgrade." });
+        return c.json({ error: "Couldn't prepare your account for upgrade." }, 502);
       }
-      return { delegated, contractAddress: implementation, nonce, chainId: CHAIN.id };
+      return c.json({ delegated, contractAddress: implementation, nonce, chainId: CHAIN.id });
     } catch (error) {
-      req.log.error({ err: error }, "delegation preflight failed");
-      return reply.code(502).send({ error: "Couldn't prepare your account for upgrade." });
+      console.error("delegation preflight failed", error);
+      return c.json({ error: "Couldn't prepare your account for upgrade." }, 502);
     }
   });
 
   /** Submits the signed authorization and pays for it. */
-  app.post<{ Body: DelegateBody }>("/", async (req, reply) => {
-    const body = req.body ?? {};
+  app.post("/", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as DelegateBody;
     const { address, contractAddress, nonce, r, s } = body;
 
     if (!address || !isAddress(address) || !contractAddress || !isAddress(contractAddress)) {
-      return reply.code(400).send({ error: "address and contractAddress are required." });
+      return c.json({ error: "address and contractAddress are required." }, 400);
     }
     if (typeof nonce !== "number" || !Number.isInteger(nonce) || nonce < 0) {
-      return reply.code(400).send({ error: "A valid nonce is required." });
+      return c.json({ error: "A valid nonce is required." }, 400);
     }
     if (!r || !s) {
-      return reply.code(400).send({ error: "A signed authorization is required." });
+      return c.json({ error: "A signed authorization is required." }, 400);
     }
 
     const owner = getAddress(address);
@@ -140,7 +142,7 @@ export function registerDelegateRoutes(app: FastifyInstance) {
             : body.v
           : undefined;
     if (yParity !== 0 && yParity !== 1) {
-      return reply.code(400).send({ error: "A signed authorization is required." });
+      return c.json({ error: "A signed authorization is required." }, 400);
     }
 
     const authorization: SignedAuthorization = {
@@ -156,26 +158,26 @@ export function registerDelegateRoutes(app: FastifyInstance) {
       // Already delegated is success, not an error: the caller wanted the
       // account usable and it is. Also stops a repeat call spending again.
       if (await isDelegated(owner)) {
-        return { delegated: true, txHash: null };
+        return c.json({ delegated: true, txHash: null });
       }
 
       // The signature has to belong to the account being delegated. Without
       // this anyone could have us pay to delegate someone else's wallet.
       const signer = await recoverAuthorizationAddress({ authorization });
       if (getAddress(signer) !== owner) {
-        return reply.code(400).send({ error: "That authorization isn't yours." });
+        return c.json({ error: "That authorization isn't yours." }, 400);
       }
 
       const expected = await expectedImplementation(owner);
       if (!expected || expected !== implementation) {
-        return reply.code(400).send({ error: "Unexpected delegation target." });
+        return c.json({ error: "Unexpected delegation target." }, 400);
       }
 
-      const onchainNonce = await publicClient.getTransactionCount({ address: owner });
+      const onchainNonce = await publicClient().getTransactionCount({ address: owner });
       if (onchainNonce !== nonce) {
         // Signed against a nonce the chain has moved past, so it would be
         // ignored on inclusion. Hand back the current one to re-sign against.
-        return reply.code(409).send({ error: "Authorization is stale.", nonce: onchainNonce });
+        return c.json({ error: "Authorization is stale.", nonce: onchainNonce }, 409);
       }
 
       const sponsor = privateKeyToAccount(env.sponsorPrivateKey as `0x${string}`);
@@ -191,18 +193,18 @@ export function registerDelegateRoutes(app: FastifyInstance) {
         data: "0x",
         gas: DELEGATION_GAS,
       });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const receipt = await publicClient().waitForTransactionReceipt({ hash: txHash });
 
       if (receipt.status !== "success" || !(await isDelegated(owner))) {
-        req.log.error({ txHash }, "sponsored delegation did not take effect");
-        return reply.code(502).send({ error: "The upgrade didn't go through. Try again." });
+        console.error("sponsored delegation did not take effect", txHash);
+        return c.json({ error: "The upgrade didn't go through. Try again." }, 502);
       }
 
-      req.log.info({ owner, txHash }, "sponsored delegation");
-      return { delegated: true, txHash };
+      console.log("sponsored delegation", owner, txHash);
+      return c.json({ delegated: true, txHash });
     } catch (error) {
-      req.log.error({ err: error }, "sponsored delegation failed");
-      return reply.code(502).send({ error: getErrorMessage(error) });
+      console.error("sponsored delegation failed", error);
+      return c.json({ error: getErrorMessage(error) }, 502);
     }
   });
 }

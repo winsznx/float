@@ -52,8 +52,11 @@ async function trpc(path, token, { input, mutation } = {}) {
   return body.result?.data;
 }
 
-// The UA we funded, so balance/identity hit real chain state.
-const ADDRESS = "0x88b59c52c90a257111c3e6bb32f1983410e63a84";
+// A throwaway address per run. Deliberately NOT a real funded wallet: this
+// suite deletes its auth user afterward, and the cascade takes every row that
+// user owns — run against a real address, that wiped real linked pledges.
+// balance.get works against any address (an empty UA reads $0.00).
+const ADDRESS = `0x${[...crypto.getRandomValues(new Uint8Array(20))].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
 const authEmail = `${ADDRESS}@wallet.float.local`;
 let userId = null;
 let token = null;

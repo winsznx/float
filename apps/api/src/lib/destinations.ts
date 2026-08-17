@@ -48,8 +48,6 @@ export function listDestinations(): FailureDestination[] {
   ];
 }
 
-export const FAILURE_DESTINATIONS = listDestinations();
-
 export function resolveDestination(
   id: string,
   customAddress?: string
