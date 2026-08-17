@@ -205,25 +205,6 @@ export const sendRouter = router({
     }),
 
   /** Attaches the on-chain hash once the client has submitted. */
-  attachTxHash: protectedProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-        txHash: z.string().regex(/^0x[a-fA-F0-9]+$/),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { data, error } = await ctx.db
-        .from("sends")
-        .update({ tx_hash: input.txHash, status: "submitted" })
-        .eq("id", input.id)
-        .eq("sender_id", ctx.userId)
-        .select()
-        .single();
-      if (error) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
-      return data;
-    }),
-
   list: protectedProcedure.query(async ({ ctx }) => {
     const { data, error } = await ctx.db
       .from("sends")

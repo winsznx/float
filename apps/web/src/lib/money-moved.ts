@@ -39,16 +39,17 @@ const RETRY_DELAYS_MS = [400, 1200];
  */
 export async function recordAfterTransfer<T>(
   txHash: string,
-  persist: () => Promise<T>
+  persist: () => Promise<T>,
+  delaysMs: readonly number[] = RETRY_DELAYS_MS
 ): Promise<T> {
   let lastError: unknown;
 
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+  for (let attempt = 0; attempt <= delaysMs.length; attempt += 1) {
     try {
       return await persist();
     } catch (caught) {
       lastError = caught;
-      const delay = RETRY_DELAYS_MS[attempt];
+      const delay = delaysMs[attempt];
       if (delay === undefined) break;
       await new Promise((resolve) => setTimeout(resolve, delay));
     }

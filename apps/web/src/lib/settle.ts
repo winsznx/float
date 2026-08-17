@@ -19,6 +19,8 @@ import { loginWithEmailOtp, getWalletAddress, isLoggedIn } from "@/lib/chain/mag
  * of the claim flows: the recipient never installs a wallet.
  */
 
+const SETTLE_RECORD_DELAYS_MS = [2_000, 5_000, 10_000, 20_000, 30_000];
+
 /** Signs the caller in with Magic if they aren't already, and returns their address. */
 async function ensureWallet(email?: string): Promise<string> {
   if (!(await isLoggedIn())) {
@@ -82,12 +84,17 @@ export async function settleShareOnChain(params: {
 
   // The share is paid the moment the transfer lands. If marking it settled
   // fails, the caller must not re-offer "Settle" on a share that has already
-  // been paid for.
-  await recordAfterTransfer(txHash, () =>
-    linkFetch(`/settle/${params.shareToken}`, {
-      method: "POST",
-      body: { memberId: params.memberId, txHash },
-    })
+  // been paid for. The server only records what it can corroborate on-chain,
+  // and a cross-chain route can trail the submit by many seconds — so this
+  // retry schedule is minutes, not the sub-second Postgres one.
+  await recordAfterTransfer(
+    txHash,
+    () =>
+      linkFetch(`/settle/${params.shareToken}`, {
+        method: "POST",
+        body: { memberId: params.memberId, txHash },
+      }),
+    SETTLE_RECORD_DELAYS_MS
   );
 
   return { txHash };

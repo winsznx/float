@@ -73,6 +73,19 @@ export const env = {
     return optional("ARBITRUM_ONE_RPC_URL") ?? "https://arb1.arbitrum.io/rpc";
   },
 
+  // Log sweeps need range-capable transports: Alchemy's free tier caps
+  // eth_getLogs at 10 blocks, so these default to public RPCs instead of the
+  // general-purpose URLs above — the same split the indexer uses.
+  get arbitrumLogsRpcUrl() {
+    return optional("ARBITRUM_LOGS_RPC_URL") ?? "https://arb1.arbitrum.io/rpc";
+  },
+  get baseLogsRpcUrl() {
+    return optional("BASE_LOGS_RPC_URL") ?? "https://mainnet.base.org";
+  },
+  get ethereumLogsRpcUrl() {
+    return optional("ETHEREUM_LOGS_RPC_URL") ?? "https://ethereum-rpc.publicnode.com";
+  },
+
   get leashManagerAddress() {
     return required("NEXT_PUBLIC_LEASH_MANAGER_ADDRESS") as `0x${string}`;
   },

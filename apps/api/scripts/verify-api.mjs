@@ -144,14 +144,16 @@ try {
   check("send.list returns it back from Postgres", sends?.some((s) => s.id === send.id));
 
   // ── split
+  // Equal splits count the organizer as a head: $60 across 2 members is $20
+  // a head, and the organizer absorbs the remainder.
   const split = await trpc("split.create", token, {
     input: {
       name: "Phase 4 dinner",
       totalAmount: 60,
       method: "equal",
       members: [
-        { ref: "vitalik.eth", shareAmount: 30 },
-        { ref: "dwr", shareAmount: 30 },
+        { ref: "vitalik.eth", shareAmount: 20 },
+        { ref: "dwr", shareAmount: 20 },
       ],
     },
     mutation: true,
@@ -159,20 +161,94 @@ try {
   check("split.create persists split + members", split?.members?.length === 2, split?.id);
   check("split issues a share link", !!split?.shareUrl, split?.shareUrl?.slice(0, 48));
 
+  // The A1 regression: $90 across 3 members is $22.50 a head. The old
+  // validation compared member shares against the full total, which rejected
+  // every equal split the client could send.
+  const ninety = await trpc("split.create", token, {
+    input: {
+      totalAmount: 90,
+      method: "equal",
+      members: [
+        { ref: "vitalik.eth", shareAmount: 22.5 },
+        { ref: "dwr", shareAmount: 22.5 },
+        { ref: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", shareAmount: 22.5 },
+      ],
+    },
+    mutation: true,
+  });
+  check("equal split $90 / 3 members accepted at $22.50 a head", ninety?.members?.length === 3, ninety?.id);
+
+  let equalRejected = false;
+  try {
+    await trpc("split.create", token, {
+      input: {
+        totalAmount: 90,
+        method: "equal",
+        members: [
+          { ref: "vitalik.eth", shareAmount: 30 },
+          { ref: "dwr", shareAmount: 30 },
+          { ref: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", shareAmount: 30 },
+        ],
+      },
+      mutation: true,
+    });
+  } catch {
+    equalRejected = true;
+  }
+  check("equal shares ignoring the organizer's head are rejected", equalRejected);
+
+  let customRejected = false;
+  try {
+    await trpc("split.create", token, {
+      input: {
+        totalAmount: 90,
+        method: "custom",
+        members: [
+          { ref: "vitalik.eth", shareAmount: 10 },
+          { ref: "dwr", shareAmount: 10 },
+        ],
+      },
+      mutation: true,
+    });
+  } catch {
+    customRejected = true;
+  }
+  check("custom shares that miss the total are rejected", customRejected);
+
+  const percentSplit = await trpc("split.create", token, {
+    input: {
+      totalAmount: 90,
+      method: "percentage",
+      members: [
+        { ref: "vitalik.eth", shareAmount: 59.4 },
+        { ref: "dwr", shareAmount: 30.6 },
+      ],
+    },
+    mutation: true,
+  });
+  check("percentage split summing exactly still passes", percentSplit?.members?.length === 2, percentSplit?.id);
+
   // ── capability-token REST, no session at all
   const shareToken = split.shareUrl.split("/").pop();
   const settleView = await (await fetch(`${API}/link/settle/${shareToken}`)).json();
   check("anonymous settle link resolves", settleView?.id === split.id, `${settleView?.split_members?.length} members`);
 
+  // A settle with no corroborating on-chain transfer must be refused — the
+  // server sweeps USDC Transfer logs to the organizer and records only what
+  // the chain has seen. (The organizer here is the test wallet, which has no
+  // recent inbound transfer for this share, so the sweep must come up empty.)
   const memberId = settleView.split_members[0].id;
-  const settled = await (
-    await fetch(`${API}/link/settle/${shareToken}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ memberId, txHash: `0x${"a".repeat(64)}` }),
-    })
-  ).json();
-  check("anonymous member settles via token", settled?.settled === true, settled?.settle_tx_hash?.slice(0, 12));
+  const bogus = await fetch(`${API}/link/settle/${shareToken}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ memberId, txHash: `0x${"a".repeat(64)}` }),
+  });
+  const bogusBody = await bogus.json();
+  check(
+    "an uncorroborated settle is refused (chain-verified)",
+    bogus.status === 409 && !!bogusBody?.error,
+    `${bogus.status} ${bogusBody?.error ?? ""}`
+  );
 
   const badToken = await (await fetch(`${API}/link/settle/${"0".repeat(32)}`)).json();
   check("an invalid link token is refused", !!badToken?.error);

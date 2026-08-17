@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { serviceDb } from "../lib/supabase.js";
 import { getErrorMessage } from "../lib/errors.js";
+import { findSettleTransfer } from "../lib/settle-verify.js";
 
 /**
  * Capability-token routes. These are opened by people with no FLOAT account,
@@ -41,8 +42,12 @@ export function registerLinkRoutes(app: FastifyInstance) {
     };
   });
 
-  /** Marks one member settled. Requires the tx hash so the DB never claims a
-   *  settlement the chain has not seen. */
+  /**
+   * Marks one member settled — but only once the chain corroborates it. The
+   * client's identifier is Particle's routing id, which no RPC can look up,
+   * so the proof is a USDC Transfer log to the organizer for the share; the
+   * hash recorded is the one found on-chain, never the one the client sent.
+   */
   app.post<{ Params: { token: string }; Body: { memberId: string; txHash: string } }>(
     "/settle/:token",
     async (req, reply) => {
@@ -54,15 +59,60 @@ export function registerLinkRoutes(app: FastifyInstance) {
       const db = serviceDb();
       const { data: split } = await db
         .from("splits")
-        .select("id")
+        .select("id, organizer_id, split_members(id, share_amount, settled, settle_tx_hash)")
         .eq("share_link_token", req.params.token)
         .maybeSingle();
       if (!split) return reply.code(404).send({ error: "This link is no longer valid." });
 
+      const member = split.split_members.find((m) => m.id === memberId);
+      if (!member) return reply.code(404).send({ error: "That member isn't part of this split." });
+
+      // A record retry after success is a no-op, not an error: the money
+      // moved once and the row already says so.
+      if (member.settled) {
+        const { data: row } = await db
+          .from("split_members")
+          .select()
+          .eq("id", memberId)
+          .single();
+        return row;
+      }
+
+      const { data: organizer } = await db
+        .from("users")
+        .select("address")
+        .eq("id", split.organizer_id)
+        .maybeSingle();
+      if (!organizer?.address) {
+        return reply.code(409).send({ error: "The organizer has no address to verify against." });
+      }
+
+      // Each found hash settles at most one share of this split.
+      const usedHashes = new Set(
+        split.split_members
+          .map((m) => m.settle_tx_hash?.toLowerCase())
+          .filter((h): h is string => !!h)
+      );
+      const proof = await findSettleTransfer({
+        organizer: organizer.address as `0x${string}`,
+        amountUsd: member.share_amount,
+        excludeTxHashes: usedHashes,
+      });
+      if (!proof) {
+        return reply.code(409).send({
+          error: "The transfer hasn't been seen on-chain yet.",
+          retryable: true,
+        });
+      }
+
       // Scoped to this split, so a leaked token cannot settle someone else's.
       const { data, error } = await db
         .from("split_members")
-        .update({ settled: true, settle_tx_hash: txHash, settled_at: new Date().toISOString() })
+        .update({
+          settled: true,
+          settle_tx_hash: proof.txHash,
+          settled_at: new Date().toISOString(),
+        })
         .eq("id", memberId)
         .eq("split_id", split.id)
         .select()
