@@ -6,8 +6,33 @@ Session-continuity log. Updated at every phase gate.
 
 ## Status
 
-**Current phase:** Hardening pass, Phase C (Cloudflare migration) — ✅ deployed and proven, awaiting gate confirmation
-**Next phase:** B — wire every dead surface (one item, settle activity rows, already landed with the port). Do not continue without confirmation.
+**Current phase:** Hardening pass, Phase B (dead surfaces) — ✅ complete and proven, awaiting gate confirmation
+**Next phase:** D — schedulers (keeper, witness lifecycle, send reconciler). Do not start without confirmation. The keeper subject's grace ends Aug 20 23:59:59 UTC.
+
+## Hardening Phase B — 2026-08-17
+
+All proven against the deployed Cloudflare stack with real Arbitrum One money.
+
+- **Leash live usage** — owner page subscribes to leash_spends realtime
+  (filter by leash id) with a 15s poll fallback; getLeashUsage is the shared
+  refresh. Proof: real leash `0x95e66c27…7b28`, args-linked by the production
+  indexer, real beneficiary spend `0xfc9cc5d9…6229` delivered to the owner's
+  channel with no refresh; leashes.spent mirrors chain at $0.02.
+- **Split organizer realtime** — dashboard follows split_members changes;
+  settle route writes split_member_settled / split_settled activity plus an
+  organizer notification. Proof: corroborated $0.10 settle seen live,
+  activity row present.
+- **Witness reachability** — FLOAT-user witnesses get an in-app
+  witness_request notification carrying the link (proven: @tim received one);
+  pledger gets a copy-witness-link button on the locked card.
+- **Public board** — /pledges consumes pledge.publicFeed, linked from the
+  public pledge card; renders the real keeper-subject pledge (made public).
+- **Scaffolding removed** — leash contract-scope step, its claim-surface
+  fields, and the dead Advanced token control are gone; zero TODO/FIXME/HACK
+  remain in source. Sends stay USDC-only by explicit choice.
+- **tradeConfig** — constructor-level per installed d.ts (transfers take no
+  per-call override): preferTokenType USD, slippageBps 100. Proof: real UA
+  transfer `0x065945c0…` reached FINISHED under it.
 
 ## Hardening Phase C — 2026-08-17 (pulled ahead of B: Railway trial expired, production had been dark since Aug 13)
 
