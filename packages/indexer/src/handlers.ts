@@ -25,25 +25,62 @@ export type EventContext = {
  * drift if a log were ever applied twice.
  */
 
+/**
+ * The API row and the chain event are linked by the event's own arguments,
+ * never by transaction hash: the app only knows Particle's routing
+ * transactionId, which is not the hash the log carries (confirmed against
+ * mainnet — the one production leash never linked under hash matching).
+ * Among identical unlinked rows the oldest wins, so repeated creates link
+ * first-in-first-out. The real chain hash is backfilled onto the row.
+ */
 export async function onLeashCreated(
   ctx: EventContext,
-  args: { leashId: string; owner: string; beneficiary: string; spendLimit: bigint }
-): Promise<void> {
-  // The API already inserted the row when the user created it; this attaches
-  // the on-chain id so later spend events can find it. Matching on tx_hash is
-  // what links the two.
-  const { data } = await ctx.db
-    .from("leashes")
-    .select("id, onchain_leash_id")
-    .eq("tx_hash", ctx.txHash)
-    .maybeSingle();
-
-  if (data && !data.onchain_leash_id) {
-    await ctx.db
-      .from("leashes")
-      .update({ onchain_leash_id: args.leashId })
-      .eq("id", data.id);
+  args: {
+    leashId: string;
+    owner: string;
+    beneficiary: string;
+    token: string;
+    spendLimit: bigint;
+    expiry: bigint;
   }
+): Promise<void> {
+  const { data: linked } = await ctx.db
+    .from("leashes")
+    .select("id")
+    .eq("onchain_leash_id", args.leashId)
+    .maybeSingle();
+  if (linked) return;
+
+  const { data: owner } = await ctx.db
+    .from("users")
+    .select("id")
+    .eq("address", args.owner.toLowerCase())
+    .maybeSingle();
+  if (!owner) return;
+
+  let query = ctx.db
+    .from("leashes")
+    .select("id")
+    .is("onchain_leash_id", null)
+    .eq("owner_id", owner.id)
+    .eq("beneficiary_address", args.beneficiary.toLowerCase())
+    .eq("spend_limit", toUsd(args.spendLimit));
+  query =
+    args.expiry === 0n
+      ? query.is("expiry_unix", null)
+      : query.eq("expiry_unix", Number(args.expiry));
+  const { data: candidates } = await query
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const match = candidates?.[0];
+  if (!match) return;
+
+  const { error } = await ctx.db
+    .from("leashes")
+    .update({ onchain_leash_id: args.leashId, tx_hash: ctx.txHash })
+    .eq("id", match.id)
+    .is("onchain_leash_id", null);
+  if (error && !error.message.includes("duplicate")) throw error;
 }
 
 export async function onLeashSpent(
@@ -115,22 +152,54 @@ export async function onLeashRevoked(
   });
 }
 
+/** Same args-linkage as onLeashCreated: pledger + stake + exact deadline +
+ *  failure destination identify the row; deadline_unix is byte-for-byte the
+ *  uint the contract stores, which is what makes this deterministic. */
 export async function onPledgeCreated(
   ctx: EventContext,
-  args: { pledgeId: string; pledger: string; witness: string; amount: bigint }
-): Promise<void> {
-  const { data } = await ctx.db
-    .from("pledges")
-    .select("id, onchain_pledge_id")
-    .eq("tx_hash", ctx.txHash)
-    .maybeSingle();
-
-  if (data && !data.onchain_pledge_id) {
-    await ctx.db
-      .from("pledges")
-      .update({ onchain_pledge_id: args.pledgeId })
-      .eq("id", data.id);
+  args: {
+    pledgeId: string;
+    pledger: string;
+    witness: string;
+    token: string;
+    amount: bigint;
+    deadline: bigint;
+    failureDestination: string;
   }
+): Promise<void> {
+  const { data: linked } = await ctx.db
+    .from("pledges")
+    .select("id")
+    .eq("onchain_pledge_id", args.pledgeId)
+    .maybeSingle();
+  if (linked) return;
+
+  const { data: pledger } = await ctx.db
+    .from("users")
+    .select("id")
+    .eq("address", args.pledger.toLowerCase())
+    .maybeSingle();
+  if (!pledger) return;
+
+  const { data: candidates } = await ctx.db
+    .from("pledges")
+    .select("id")
+    .is("onchain_pledge_id", null)
+    .eq("pledger_id", pledger.id)
+    .eq("stake_amount", toUsd(args.amount))
+    .eq("deadline_unix", Number(args.deadline))
+    .eq("failure_destination_address", args.failureDestination.toLowerCase())
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const match = candidates?.[0];
+  if (!match) return;
+
+  const { error } = await ctx.db
+    .from("pledges")
+    .update({ onchain_pledge_id: args.pledgeId, tx_hash: ctx.txHash })
+    .eq("id", match.id)
+    .is("onchain_pledge_id", null);
+  if (error && !error.message.includes("duplicate")) throw error;
 }
 
 /** Shared terminal transition for all three resolution paths. */
