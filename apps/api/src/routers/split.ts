@@ -27,13 +27,39 @@ export const splitRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const sum = input.members.reduce((acc, m) => acc + m.shareAmount, 0);
-      // Tolerate rounding on equal splits, reject genuine mismatches.
-      if (Math.abs(sum - input.totalAmount) > 0.01 * input.members.length) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Shares total $${sum.toFixed(2)}, but the split is $${input.totalAmount.toFixed(2)}.`,
-        });
+      // Share math is validated in whole cents — float sums drift.
+      const totalCents = Math.round(input.totalAmount * 100);
+      const shareCents = input.members.map((m) => Math.round(m.shareAmount * 100));
+
+      if (input.method === "equal") {
+        // The organizer counts as a head: every member owes
+        // floor(total / (members + 1)) and the organizer absorbs the
+        // remainder, so member shares deliberately sum to less than the
+        // total. Validating equal splits against the full total rejected
+        // every payload the client could send.
+        const headCents = Math.floor(totalCents / (input.members.length + 1));
+        if (headCents === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Total is too small to split at a cent a head.",
+          });
+        }
+        if (shareCents.some((c) => c !== headCents)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Equal shares are $${(headCents / 100).toFixed(2)} a head for this split.`,
+          });
+        }
+      } else {
+        // Percentage and custom shares cover the whole total. Tolerate a
+        // cent of rounding per member, reject genuine mismatches.
+        const sumCents = shareCents.reduce((acc, c) => acc + c, 0);
+        if (Math.abs(sumCents - totalCents) > input.members.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Shares total $${(sumCents / 100).toFixed(2)}, but the split is $${input.totalAmount.toFixed(2)}.`,
+          });
+        }
       }
 
       const { data: split, error } = await ctx.db
