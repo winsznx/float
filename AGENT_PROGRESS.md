@@ -6,8 +6,49 @@ Session-continuity log. Updated at every phase gate.
 
 ## Status
 
-**Current phase:** 6 (was 3) — SDK integration → **surfaces verified, modules written; proofs blocked on keys + one product decision (see below)**
-**Next phase:** 4 — Backend API services. Do not start without confirmation.
+**Current phase:** Hardening pass, Phase A (critical correctness) — ✅ complete, awaiting gate confirmation
+**Next phase:** B — wire every dead surface. Do not start without confirmation.
+
+## Hardening Phase A — 2026-08-17
+
+Contracts untouched. All proofs ran against the production database and real
+Arbitrum One mainnet, with the fixed API running locally (the Railway deploy
+still carries pre-fix code; see the gate note).
+
+- **A1 equal-split validation** — server now validates per method in whole
+  cents: equal expects `floor(total/(N+1))` a head (organizer counts as a
+  head), percentage/custom keep the full-total tolerance
+  (`apps/api/src/routers/split.ts`). Proof: verify-api 39/39 including the
+  $90/3 regression; live $0.06 equal split accepted
+  (`apps/api/scripts/prove-settle-verification.mjs`).
+- **A2 settle verification** — `POST /link/settle/:token` records only what a
+  USDC Transfer-log sweep to the organizer corroborates
+  (`apps/api/src/lib/settle-verify.ts`), stores the found chain hash, one
+  hash settles at most one share, replays are no-ops, uncorroborated → 409
+  retryable. Client retries the record phase on a minutes-scale schedule
+  (`apps/web/src/lib/settle.ts`). `send.attachTxHash` deleted (no caller).
+  Proof: real $0.02 USDC transfer `0x51931445…5623f` corroborated; garbage
+  hash refused. Sweeps need range-capable logs RPCs (`*_LOGS_RPC_URL`,
+  public fallbacks — Alchemy caps getLogs at 10 blocks).
+- **A3 chain linkage** — confirmed at runtime that Particle transactionIds do
+  NOT match chain tx hashes (production leash never linked; on-chain hashes
+  differ). Indexer now links `LeashCreated`/`PledgeCreated` by event args
+  (owner/pledger + amounts + exact unix expiry/deadline + destination),
+  oldest-unlinked-first, and backfills the real chain hash
+  (`packages/indexer/src/handlers.ts`). Proof: real leash
+  `0xe07faaa0…d737` + real pledge `0x672a3be4…715e` both auto-linked
+  (`apps/api/scripts/prove-chain-linkage.mjs`). That pledge (id
+  `fb978070-455f-4dae-ae07-24b9139121f7`, deadline 1787011199, grace ends
+  1787270399) is left to expire as the Phase D keeper subject.
+- **A4 destination picker** — picker filters to server-configured
+  destinations; custom address gets inline viem `isAddress` + zero-address
+  validation in the page and a hard guard before the chain call; stale TODO
+  removed.
+
+**Found while proving:** the Railway indexer's cursor froze at block
+494085696 on 2026-08-13 (service down). The gap holds zero contract events
+(Arbiscan-verified), so no data was missed; the local proof run advanced the
+cursor. The deployed indexer also runs the old hash-matching build.
 
 **Deployed (Arbitrum Sepolia, 421614):**
 - LeashManager `0x85eF03e9a1Fd2866644132E41c622F4f8d9ae588` (block 289239169) — [verified](https://sepolia.arbiscan.io/address/0x85eF03e9a1Fd2866644132E41c622F4f8d9ae588#code)
