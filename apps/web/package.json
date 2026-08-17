@@ -11,7 +11,10 @@
     "pretypecheck": "npm run build --workspace @float/api",
     "prebuild": "npm run build --workspace @float/api",
     "e2e": "playwright test",
-    "e2e:prod": "E2E_BASE_URL=https://float-web.timjosh507.workers.dev playwright test"
+    "e2e:prod": "E2E_BASE_URL=https://float-web.timjosh507.workers.dev playwright test",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@float/api": "^0.1.0",
@@ -23,7 +26,7 @@
     "gsap": "^3.15.0",
     "lucide-react": "^1.24.0",
     "magic-sdk": "^33.9.0",
-    "next": "16.2.10",
+    "next": "^16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "superjson": "^2.2.6",
@@ -31,13 +34,14 @@
     "wagmi": "^2.19.5"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.2",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "^16.2.12",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

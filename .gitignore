@@ -62,6 +62,9 @@ dist/
 # playwright
 test-results/
 playwright-report/
-.dev.vars*
+.dev.vars
+!.dev.vars.example
 .wrangler/
 worker-configuration.d.ts
+.open-next/
+cloudflare-env.d.ts

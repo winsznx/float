@@ -6,8 +6,46 @@ Session-continuity log. Updated at every phase gate.
 
 ## Status
 
-**Current phase:** Hardening pass, Phase A (critical correctness) — ✅ complete, awaiting gate confirmation
-**Next phase:** B — wire every dead surface. Do not start without confirmation.
+**Current phase:** Hardening pass, Phase C (Cloudflare migration) — ✅ deployed and proven, awaiting gate confirmation
+**Next phase:** B — wire every dead surface (one item, settle activity rows, already landed with the port). Do not continue without confirmation.
+
+## Hardening Phase C — 2026-08-17 (pulled ahead of B: Railway trial expired, production had been dark since Aug 13)
+
+Everything hosts on Cloudflare Workers now; Railway is fully retired and no
+tracked file references it.
+
+- **float-api** — Fastify → Hono, one worker: /trpc (fetch adapter via
+  @hono/trpc-server), /link, /particle, /delegate, same paths and budgets.
+  Rate limits and login nonces are SQLite Durable Objects (per-colo ratelimit
+  binding isn't accurate enough for the delegate route, which spends sponsor
+  gas; in-memory nonces don't survive isolate churn). mintSession drops the
+  listUsers scan for generateLink's returned user. Live:
+  https://float-api.timjosh507.workers.dev — 39/39 verify checks against the
+  deployment, plus a real corroborated settle ($0.07,
+  `0x4d5db420…cf92f8`) and a real sponsored delegation from a fresh zero-ETH
+  EOA (`0x66666b3e…fa691`, type eip7702, code = 0xef0100+impl, replay no-op).
+- **float-indexer** — DO alarm every 10s + 1-min cron watchdog; scan engine
+  shared with the node entry (src/core.ts); cursor stays in indexer_state.
+  Closed the 1.47M-block gap on deploy (the cold-start backfill rehearsal)
+  and re-linked the keeper subject from chain after a cursor rewind.
+- **float-web** — Next bumped 16.2.10 → 16.2.12 (adapter floor 16.2.11 is a
+  security release: 4 high-severity fixes), @opennextjs/cloudflare 1.20.2.
+  Live: https://float-web.timjosh507.workers.dev — all sessionless surfaces
+  load with real data (witness, leash claim, receipt, public pledge).
+- **Compat verified empirically in workerd before porting:** Magic admin
+  (validate/getIssuer crypto path), Particle UA SDK (axios), Supabase, viem,
+  node:crypto, process.env-from-bindings.
+- **Keeper subject** (Phase D): pledge `0063f654-4abd-4847-9091-ef81fb206ecf`
+  on-chain id `0xf936e524…`, deadline 1787011199 (Aug 17 23:59:59 UTC),
+  grace ends 1787270399 (Aug 20 23:59:59 UTC), tracked by the live indexer.
+- **Verify-script hygiene:** the suite uses a throwaway address per run and
+  the settle proof deletes only its own splits — the old shared identity's
+  cascade had deleted the real linked rows (restored + re-linked from chain).
+
+**Human steps outstanding:** add https://float-web.timjosh507.workers.dev to
+Magic's allowed origins (dashboard) or browser logins fail; browser E2E with
+a real Magic OTP; custom domain decision (workers.dev URLs carry the build
+for now).
 
 ## Hardening Phase A — 2026-08-17
 

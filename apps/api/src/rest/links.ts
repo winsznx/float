@@ -121,6 +121,22 @@ export function registerLinkRoutes<E extends Env>(app: Hono<E>) {
       .single();
     if (error) return c.json({ error: getErrorMessage(error) }, 400);
 
+    // The organizer's feed and bell learn about it the moment the verified
+    // settle records — written here because this is the only place a
+    // settlement becomes true. Failures log; the settle itself stands.
+    const { error: activityError } = await db.from("activity").insert({
+      user_id: split.organizer_id,
+      type: "split_member_settled",
+      ref_type: "split",
+      ref_id: split.id,
+    });
+    if (activityError) console.error("activity insert failed", activityError.message);
+    await db.from("notifications").insert({
+      user_id: split.organizer_id,
+      type: "split_member_settled",
+      payload: { amount: member.share_amount, txHash: proof.txHash },
+    });
+
     // Close the split once everyone has paid.
     const { data: remaining } = await db
       .from("split_members")
@@ -129,6 +145,13 @@ export function registerLinkRoutes<E extends Env>(app: Hono<E>) {
       .eq("settled", false);
     if ((remaining?.length ?? 0) === 0) {
       await db.from("splits").update({ status: "settled" }).eq("id", split.id);
+      const { error: settledError } = await db.from("activity").insert({
+        user_id: split.organizer_id,
+        type: "split_settled",
+        ref_type: "split",
+        ref_id: split.id,
+      });
+      if (settledError) console.error("activity insert failed", settledError.message);
     }
 
     return c.json(data);
