@@ -1,3 +1,4 @@
+import { isAddress } from "viem";
 import { api } from "@/lib/api";
 import { createPledgeOnChain } from "@/lib/chain/contracts";
 import { signUniversalTransaction } from "@/lib/chain/signer";
@@ -85,10 +86,16 @@ export async function createPledge({
   const destinations = await getFailureDestinations();
   const destination =
     destinationId === "custom"
-      ? customAddress
+      ? customAddress?.trim()
       : destinations.find((d) => d.id === destinationId)?.address;
   if (!destination) {
     throw new Error("Pick a destination with a configured address.");
+  }
+  if (
+    destinationId === "custom" &&
+    (!isAddress(destination) || /^0x0{40}$/i.test(destination))
+  ) {
+    throw new Error("Enter a valid destination address.");
   }
 
   // Stake moves on-chain first; only a real lock gets recorded.

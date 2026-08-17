@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import gsap from "gsap";
+import { isAddress } from "viem";
 import { Lock } from "lucide-react";
 import { ModePill } from "@/components/ModePill";
 import { ModeHistory } from "@/components/ModeHistory";
@@ -156,7 +157,9 @@ export default function PledgePage() {
     let cancelled = false;
     getFailureDestinations()
       .then((rows) => {
-        if (!cancelled) setDestinations(rows);
+        // Only server-configured destinations are offered: an option without
+        // an address would pass the picker and fail at lock time.
+        if (!cancelled) setDestinations(rows.filter((row) => row.available));
       })
       .catch(() => {
         // The picker still offers a custom address if the list can't load.
@@ -168,6 +171,12 @@ export default function PledgePage() {
   }, []);
 
   const stake = Number(stakeValue) || 0;
+
+  // The contract refuses the zero address, and a stake locked against a
+  // mistyped destination could only ever be slashed into the void.
+  const trimmedCustomAddress = customAddress.trim();
+  const customAddressValid =
+    isAddress(trimmedCustomAddress) && !/^0x0{40}$/i.test(trimmedCustomAddress);
 
   const failureLabel = showCustomDestination
     ? customAddress.trim()
@@ -354,7 +363,6 @@ export default function PledgePage() {
                 <label htmlFor="custom-address" className="sr-only">
                   Failure destination address
                 </label>
-                {/* TODO: wire real address validation once failure-destination targeting is defined (see PRD Pledge Contract). UI scaffolding only for now. */}
                 <input
                   id="custom-address"
                   name="custom-address"
@@ -365,12 +373,20 @@ export default function PledgePage() {
                   placeholder="Failure destination address"
                   className="w-full rounded-md border-2 border-void bg-void-3 px-4 py-3 font-mono text-[13px] text-text placeholder:font-body placeholder:text-muted-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-signal)]"
                 />
+                {customAddress.trim() !== "" && !customAddressValid && (
+                  <p className="mt-2 font-body text-[12px] text-coral" role="alert">
+                    Enter a valid address. The zero address can&apos;t receive a
+                    slashed stake.
+                  </p>
+                )}
               </div>
             )}
           </div>
 
           <PrimaryButton
-            disabled={!selectedDestination && !(showCustomDestination && customAddress.trim())}
+            disabled={
+              showCustomDestination ? !customAddressValid : !selectedDestination
+            }
             onClick={() => setStep("deadline")}
           >
             Next
