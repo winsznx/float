@@ -21,7 +21,7 @@ npm workspaces. Run everything from the root: `npm run dev`, `npm run build`, `n
 
 | | |
 |---|---|
-| Node | >= 20 (local dev on 24) |
+| Node | >= 22 (wrangler floor; local dev on 24, CI on 22) |
 | Next.js | 16.2.10 — **Next 14 is end-of-life and must never appear** |
 | React | 19.2.4 |
 | Tailwind | v4 — CSS-first config in `apps/web/src/app/globals.css`, there is no `tailwind.config.js` |
