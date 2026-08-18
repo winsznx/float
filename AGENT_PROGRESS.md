@@ -109,6 +109,8 @@ tracked file references it.
   (validate/getIssuer crypto path), Particle UA SDK (axios), Supabase, viem,
   node:crypto, process.env-from-bindings.
 - **Keeper subject** (Phase D): pledge `0063f654-4abd-4847-9091-ef81fb206ecf`
+  (re-created row superseding Phase A's `fb978070…` after the verify-suite
+  cascade deletion — same on-chain pledge)
   on-chain id `0xf936e524…`, deadline 1787011199 (Aug 17 23:59:59 UTC),
   grace ends 1787270399 (Aug 20 23:59:59 UTC), tracked by the live indexer.
 - **Verify-script hygiene:** the suite uses a throwaway address per run and

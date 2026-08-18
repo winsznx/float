@@ -121,7 +121,7 @@ export default function LeashPage() {
       setUsed(result.spent);
       setStep("active");
     } catch (caught) {
-      // Stays on review so the configured limit, scope, and expiry survive a retry.
+      // Stays on review so the configured limit and expiry survive a retry.
       setError(getErrorMessage(caught));
     } finally {
       setCreating(false);

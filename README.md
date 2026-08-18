@@ -153,7 +153,7 @@ Every layer has a suite that runs against real infrastructure. No fixtures, no m
 ```bash
 npm test                --workspace @float/contracts   # 52 contract tests
 npm run verify:rls      --workspace @float/db          # 29 RLS boundaries, real JWTs
-npm run verify:session  --workspace @float/db          # 10 session minting
+npm run verify:session  --workspace @float/db          #  9 session minting
 npm run verify          --workspace @float/api         # 39 endpoints, live ENS/Neynar/Particle
 npm run verify:security --workspace @float/api         # 23 attack boundaries
 npm run e2e             --workspace @float/web         # 11 browser tests over the lifecycle
