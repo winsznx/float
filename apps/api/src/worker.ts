@@ -10,6 +10,7 @@ import { registerParticleProxy } from "./rest/particle.js";
 import { registerDelegateRoutes } from "./rest/delegate.js";
 import { env } from "./lib/env.js";
 import { NONCE_TTL_MS, loginMessage, type LoginNonceStore } from "./lib/nonce.js";
+import { runSchedulers } from "./lib/schedulers.js";
 
 export type WorkerEnv = {
   RATE_LIMITER: DurableObjectNamespace<RateLimiter>;
@@ -157,4 +158,14 @@ app.use(
   })
 );
 
-export default app;
+export default {
+  fetch: app.fetch,
+  /**
+   * One cron, three idempotent tasks: the claimExpired keeper, the witness
+   * lifecycle notifications, and the background send reconciler. See
+   * lib/schedulers.ts for why each is safe to re-run.
+   */
+  scheduled(_controller: ScheduledController, _env: WorkerEnv, ctx: ExecutionContext): void {
+    ctx.waitUntil(runSchedulers());
+  },
+};

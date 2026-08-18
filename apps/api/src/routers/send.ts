@@ -7,7 +7,6 @@ import { fetchSendStatus } from "../lib/transaction-status.js";
 import type { Database } from "@float/db";
 import { notifyClaim } from "../lib/notify.js";
 import { getErrorMessage } from "../lib/errors.js";
-import { randomBytes } from "node:crypto";
 
 // Chains the Universal Account routes. The client reports which of these a
 // transfer actually used; anything else is a client that has drifted from the
@@ -108,7 +107,11 @@ export const sendRouter = router({
       // sends.claim_token is nullable with no default, so it has to be minted
       // here — without it the claim email links nowhere.
       const needsClaim = !resolution.resolvedAddress;
-      const claimToken = needsClaim ? randomBytes(16).toString("hex") : null;
+      const claimToken = needsClaim
+        ? [...crypto.getRandomValues(new Uint8Array(16))]
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("")
+        : null;
 
       // Link the recipient's FLOAT account when the address belongs to one.
       // This was never set, so recipient_user_id was always null: a send to an

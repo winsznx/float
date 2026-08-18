@@ -22,5 +22,6 @@
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["RateLimiter", "LoginNonces"] }
-  ]
+  ],
+  "triggers": { "crons": ["* * * * *"] }
 }
