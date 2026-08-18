@@ -6,8 +6,32 @@ Session-continuity log. Updated at every phase gate.
 
 ## Status
 
-**Current phase:** Hardening pass, Phase D (schedulers) — ✅ deployed and observed in production, awaiting gate confirmation
-**Next phase:** E — cosmetics, hygiene, README. Do not start without confirmation.
+**Current phase:** Hardening pass, Phase E (assets, README, hygiene) — ✅ complete, awaiting gate confirmation
+**Next phase:** F — re-audit and PITCH_SOURCE_V2. Do not start without confirmation.
+
+## Hardening Phase E — 2026-08-18
+
+- **Assets** — OG image, favicon, apple icon regenerated in the shipped
+  design (lavender page, surface card, signal tile, Space Grotesk); rendered
+  and visually verified; shadow is opt-in so icon canvases don't clip.
+- **README** — Workers hosting and dev flow, DO-alarm indexer + cron
+  schedulers, corroborated settles, the live delegation relayer with proof
+  tx `0x66666b3e…fa691`, suite counts re-verified today (contracts 52,
+  RLS 29, session 10, api 39 vs the deployed worker, security 23 vs the
+  deployed worker, e2e 11 vs the deployed web), Honest limitations cut to
+  three (unaudited; USDC-only three-chain delivery by design; Magic OTP
+  hand-verified). The indexer money-suite is superseded by the prove-*
+  scripts, which the README now points at.
+- **Found and fixed in production** — the deployed web bundle mixed chunks
+  from two builds; account and leash pages called localhost:4000. Root
+  cause: fragile `env $(...)` interpolation feeding the build. Production
+  env now flows through a generated, gitignored `apps/web/.env.production`;
+  clean rebuild deployed; e2e:prod 11/11 against the live stack.
+- **Suite hygiene** — verify-rls asserts its own rows (absolute counts broke
+  once a real public pledge existed): 29/29.
+- **Clean-clone acceptance** — fresh clone → npm ci → typecheck green →
+  web (:3000) and API worker (:8788) both boot; README gains the one
+  missing step (Next reads env from the app dir).
 
 ## Hardening Phase D — 2026-08-18
 
