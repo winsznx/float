@@ -57,7 +57,8 @@ flowchart TB
     end
 
     CHAIN["Arbitrum One<br/>LeashManager · PledgeVault · USDC"]
-    IDX["Indexer<br/>watches events"]
+    IDX["Indexer<br/>Durable Object alarm, ~10s"]
+    CRON["Schedulers, 1/min<br/>expiry keeper · witness<br/>lifecycle · send reconciler"]
     DB[("Postgres<br/>social layer +<br/>read-cache")]
 
     E1 --> UA
@@ -73,13 +74,17 @@ flowchart TB
     L2 & L3 & L4 --> CHAIN
 
     CHAIN --> IDX --> DB
+    CRON --> CHAIN
+    CRON --> DB
     DB -.->|"live updates"| modes
 
     classDef node fill:#ffffff,stroke:#1c1726,stroke-width:1.5px,color:#1c1726
-    class E1,E2,UA,SEND,SPLIT,LEASH,PLEDGE,L1,L2,L3,L4,CHAIN,IDX,DB node
+    class E1,E2,UA,SEND,SPLIT,LEASH,PLEDGE,L1,L2,L3,L4,CHAIN,IDX,CRON,DB node
 ```
 
-**The upgrade is real and verifiable.** In EIP-7702 mode the account you already have *becomes* the smart account — same address, no migration. On Arbitrum One, the owner EOA's code reads `0xef0100` followed by the delegate address, which is the canonical EIP-7702 delegation designator, and the [settlement transaction](https://arbiscan.io/tx/0xba733747cd8b4239aaf505e6993115e6382575473ac32f3bfa8e4b36068ba638) is **type `0x4`** — the SetCode transaction type. It was submitted by a relayer, so the user paid no gas.
+**The upgrade is real and verifiable.** In EIP-7702 mode the account you already have *becomes* the smart account — same address, no migration. On Arbitrum One, the owner EOA's code reads `0xef0100` followed by the delegate address, which is the canonical EIP-7702 delegation designator, and the [settlement transaction](https://arbiscan.io/tx/0xba733747cd8b4239aaf505e6993115e6382575473ac32f3bfa8e4b36068ba638) is **type `0x4`** — the SetCode transaction type. The delegation relayer is a live endpoint: the wallet signs one tuple, the API recovers the signer, cross-checks the delegation target against Particle's own answer, enforces nonce freshness, and pays to land the type-4 — so a wallet provisioned seconds ago with zero ETH completes its first send ([proof tx](https://arbiscan.io/tx/0x66666b3e465c623e2d640fea354e62864067139f8b6ef50bd7aafa68feffa691), a fresh EOA delegated by the relayer).
+
+**Settlements are corroborated, never trusted.** Marking a split share paid requires the chain to show it: the API sweeps USDC `Transfer` logs to the organizer and records the hash it finds — one found transfer settles at most one share, and an uncorroborated settle is refused. The schedulers close the loop: an expired pledge nobody resolved is slashed on-chain by a keeper, the witness is reminded 24 hours out and notified at the deadline, and a submitted send reaches its terminal state with the app closed.
 
 **Who owns what.** The chain is authoritative for money and authority. Postgres is authoritative for the social layer — handles, links, notes, notifications — and acts as a read-cache the indexer keeps in lockstep.
 
@@ -103,15 +108,18 @@ That split is enforced, not aspirational: `leash.spent` is never written by the 
 ```bash
 git clone https://github.com/winsznx/float.git && cd float
 npm install
-cp .env.example .env.local     # fill in the keys below
-npm run dev                    # web on :3000
+cp .env.example .env.local          # fill in the keys below
+cp .env.local apps/web/.env.local   # Next only reads env from the app dir
+npm run dev                         # web on :3000
 ```
 
-The API and indexer run alongside:
+The API and indexer are Cloudflare Workers (`wrangler dev` reads
+`.dev.vars` — copy `.dev.vars.example` in each package and fill it in):
 
 ```bash
-npm run dev   --workspace @float/api        # :4000
-npm run start --workspace @float/indexer    # watches Arbitrum One
+npm run dev --workspace @float/api          # workerd on :8787
+npm run dev --workspace @float/indexer      # DO alarm + cron, local workerd
+npm run deploy --workspace @float/api       # wrangler deploy
 ```
 
 ### Keys
@@ -144,15 +152,20 @@ Every layer has a suite that runs against real infrastructure. No fixtures, no m
 
 ```bash
 npm test                --workspace @float/contracts   # 52 contract tests
-npm run verify:rls      --workspace @float/db          # 30 RLS boundaries, real JWTs
-npm run verify:session  --workspace @float/db          #  9 session minting
-npm run verify          --workspace @float/api         # 35 endpoints, live ENS/Neynar/Particle
+npm run verify:rls      --workspace @float/db          # 29 RLS boundaries, real JWTs
+npm run verify:session  --workspace @float/db          # 10 session minting
+npm run verify          --workspace @float/api         # 39 endpoints, live ENS/Neynar/Particle
 npm run verify:security --workspace @float/api         # 23 attack boundaries
-npm run verify          --workspace @float/indexer     # 12 real mainnet events (~$0.15)
 npm run e2e             --workspace @float/web         # 11 browser tests over the lifecycle
 ```
 
-Two of these spend real money on purpose. The indexer suite creates a leash on Arbitrum One, spends against it, revokes it, and asserts Postgres mirrors each event. `npm run e2e:prod` runs the browser suite against the deployed URL.
+The hardening pass added acceptance proofs that move real money on Arbitrum
+One against the deployed stack (`apps/api/scripts/prove-*.mjs`): a settle
+corroborated by its on-chain transfer and refused without one, a leash spend
+delivered to the owner's realtime channel, a fresh zero-ETH EOA delegated
+through the live relayer, and the schedulers observed firing in production.
+`npm run e2e:prod` runs the browser suite against the deployed URL — all 11
+pass against the live Workers deployment.
 
 The E2E suite exists because **every bug that reached a real user lived between layers** — the API suite passed, the security suite passed, and the app was still broken because nothing drove a browser. Each test names the regression it prevents.
 
@@ -161,10 +174,13 @@ The E2E suite exists because **every bug that reached a real user lived between 
 ## Architecture
 
 ```
-apps/web            Next.js 16 · React 19 · Tailwind v4
-apps/api            Fastify · tRPC (app) + REST (capability links)
+apps/web            Next.js 16 · React 19 · Tailwind v4 — Workers via OpenNext
+apps/api            Hono on Cloudflare Workers · tRPC (app) + REST (links)
+                    + cron schedulers · rate limits and login nonces in
+                    Durable Objects
 packages/contracts  Solidity 0.8.24 · Hardhat · OpenZeppelin
-packages/indexer    viem event worker, persisted cursor
+packages/indexer    viem scan engine · Durable Object alarm (~10s) with a
+                    cron watchdog · persisted cursor
 packages/db         migrations, RLS, generated types
 ```
 
@@ -172,7 +188,9 @@ Everything runs from the root: `npm run dev`, `npm run build`, `npm run lint`, `
 
 **Why tRPC *and* REST.** The app is typed end to end — the web client imports `AppRouter` directly from the API package, so a server shape change is a compile error rather than a runtime surprise. But claim, settle, witness, and leash links are opened by people with **no session**, from a URL someone messaged them. Those are plain REST with capability tokens, which is far easier to reason about than anonymous tRPC context.
 
-**Why the indexer polls rather than subscribes.** Polling survives RPC restarts without reconnection logic, and a persisted cursor makes it lossless: a worker that was down for a day backfills the gap on boot instead of silently missing it.
+**Why the indexer ticks rather than subscribes.** A Durable Object alarm every ~10 seconds survives RPC restarts without reconnection logic, and the cursor lives in Postgres, so any runtime resumes exactly where the last one stopped — a cold start is just a backfill from the cursor. That mechanism closed a 1.47-million-block gap on its first production run.
+
+**Why Durable Objects for rate limits.** The platform's rate-limit binding counts per Cloudflare location; the delegate endpoint spends sponsor gas per allowed request, so its budget is counted globally — one small SQLite object per bucket and key. Login nonces live in DO storage for the same reason: consuming a nonce exactly once is the security property, and isolate memory doesn't survive.
 
 ---
 
@@ -189,11 +207,11 @@ Everything runs from the root: `npm run dev`, `npm run build`, `npm run lint`, `
 | Contract authority | `msg.sender` checks with named errors | `spend` is beneficiary-only, `revoke` owner-only, resolution witness-only |
 | Slash timing | 72-hour witness grace period | `claimExpired` is permissionless only after `deadline + 72h`, so a witness can't be front-run at deadline+1s |
 | Replay / reorg | `(tx_hash, log_index)` unique keys, derived counters | Re-applying a log is a no-op; a resolved pledge never leaves its terminal state |
-| Transport | Rate limits, security headers, `trustProxy` | 120/min app, 30/min capability links; nosniff, DENY framing, no-referrer |
+| Transport | Rate limits in Durable Objects, security headers | 120/min app, 30/min links, 10/min delegate, counted globally not per-colo; nosniff, DENY framing, no-referrer |
 | Input | Zod on every procedure | Negative amounts, malformed and zero addresses, oversized notes and path-traversal handles all rejected |
 | Secrets | Env only; `.env.example` is blank | No secret has ever been committed — verified across the full git history |
 
-**Not guaranteed on-chain:** `LeashManager` scopes by beneficiary, token, cap, and expiry. Per-contract allowlisting is stored for the UI and is **not** enforced by the contract. Don't read it as a chain-level guarantee.
+`LeashManager` scopes by beneficiary, token, cap, and expiry — and that is also all the product claims: the UI collects nothing the contract doesn't enforce.
 
 ### Reporting a vulnerability
 
@@ -205,10 +223,8 @@ Open a [security advisory](https://github.com/winsznx/float/security/advisories/
 
 Stated plainly, because a demo that oversells is worse than one that doesn't.
 
-- **The contracts are unaudited.** 52 tests including every failure path, but no third-party audit. Don't put real money at risk.
-- **The pledge slash is same-chain.** `PledgeVault` transfers the escrowed ERC-20 to the destination on Arbitrum. The cross-chain property is on the *funding* side — the Universal Account sources your stake from wherever you hold value.
-- **The Universal Account SDK is mainnet-only.** `createUniversalTransaction` rejects every testnet, which is why the contracts had to ship to Arbitrum One rather than stay on Sepolia.
-- **Gitcoin and DAO failure destinations are unconfigured.** Only the burn address ships with a real one; the others are marked unavailable rather than shipped with a plausible-looking guess.
+- **The contracts are unaudited.** 52 tests including every failure path, but no third-party review. Don't stake money you can't afford to lose.
+- **Sends are USDC-only and deliver to three chains by design.** Ethereum, Base, and Arbitrum are where Circle-native USDC lives; a wrong token address sends real money to something that isn't USDC, so the map stays narrow on purpose. Contract execution is same-chain on Arbitrum One — the cross-chain property is the funding, sourced from wherever you hold value.
 - **Magic's OTP modal is untested by automation.** The code goes to a real inbox, so E2E seeds a real session instead. That one step is covered by hand.
 
 ---

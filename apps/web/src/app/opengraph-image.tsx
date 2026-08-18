@@ -2,17 +2,21 @@ import { ImageResponse } from "next/og";
 import { loadGoogleFont } from "@/lib/og-fonts";
 import { Monogram } from "@/lib/og-monogram";
 
-const FLOAT_VOID = "#0a0a0f";
-const FLOAT_HEADING = "#f0f0ff";
-const FLOAT_BODY = "#c8c8dc";
+// The shipped palette (globals.css): lavender page, near-white surface card
+// with the brutalist void border and offset shadow, Space Grotesk display.
+const PAGE = "#f3effa";
+const SURFACE = "#fdfbfe";
+const VOID = "#1c1726";
+const MUTED = "#6b6478";
+const BRUT_LINE = "rgba(28, 23, 38, 0.88)";
 
 export const alt = "FLOAT. Your money. Any chain. Just send.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function Image(): Promise<ImageResponse> {
-  const [syne, inter] = await Promise.all([
-    loadGoogleFont("Syne", 800),
+  const [spaceGrotesk, inter] = await Promise.all([
+    loadGoogleFont("Space Grotesk", 700),
     loadGoogleFont("Inter", 500),
   ]);
 
@@ -25,20 +29,31 @@ export default async function Image(): Promise<ImageResponse> {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: FLOAT_VOID,
+          background: PAGE,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 56 }}>
-          <Monogram size={240} />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 56,
+            padding: "72px 88px",
+            background: SURFACE,
+            border: `3px solid ${VOID}`,
+            borderRadius: 28,
+            boxShadow: `14px 14px 0 0 ${BRUT_LINE}`,
+          }}
+        >
+          <Monogram size={220} shadow />
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span
               style={{
-                fontFamily: "Syne",
-                fontWeight: 800,
+                fontFamily: "Space Grotesk",
+                fontWeight: 700,
                 fontSize: 96,
                 lineHeight: 1,
                 letterSpacing: "-0.02em",
-                color: FLOAT_HEADING,
+                color: VOID,
               }}
             >
               FLOAT
@@ -49,7 +64,7 @@ export default async function Image(): Promise<ImageResponse> {
                 fontFamily: "Inter",
                 fontWeight: 500,
                 fontSize: 30,
-                color: FLOAT_BODY,
+                color: MUTED,
               }}
             >
               Your money. Any chain. Just send.
@@ -61,7 +76,7 @@ export default async function Image(): Promise<ImageResponse> {
     {
       ...size,
       fonts: [
-        { name: "Syne", data: syne, weight: 800, style: "normal" },
+        { name: "Space Grotesk", data: spaceGrotesk, weight: 700, style: "normal" },
         { name: "Inter", data: inter, weight: 500, style: "normal" },
       ],
     }

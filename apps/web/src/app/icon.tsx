@@ -25,11 +25,11 @@ export default async function Icon({
   const iconId = String(await id);
   const match = ICON_SIZES.find((entry) => entry.id === iconId);
   const dimension = match ? match.size.width : 32;
-  const syne = await loadGoogleFont("Syne", 800);
+  const spaceGrotesk = await loadGoogleFont("Space Grotesk", 700);
 
   return new ImageResponse(<Monogram size={dimension} />, {
     width: dimension,
     height: dimension,
-    fonts: [{ name: "Syne", data: syne, weight: 800, style: "normal" }],
+    fonts: [{ name: "Space Grotesk", data: spaceGrotesk, weight: 700, style: "normal" }],
   });
 }

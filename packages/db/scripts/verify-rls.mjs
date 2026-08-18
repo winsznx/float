@@ -208,12 +208,17 @@ try {
     body: { ...pledgeBase, pledger_id: idA, is_public: true },
   });
   check("A inserts public pledge", r.status === 201, `status ${r.status}`);
+  const publicPledgeId = r.json?.[0]?.id;
+  const privatePledgeVisible = (rows) => rows.some((row) => row.is_public === false);
+  const suitePublicVisible = (rows) => rows.some((row) => row.id === publicPledgeId);
 
+  // Scoped to this suite's own rows: other real public pledges may exist, and
+  // counting the table asserts the world instead of the policy.
   r = await api("/rest/v1/pledges?select=id,is_public", { token: jwtB });
-  check("B sees only the public pledge", r.status === 200 && r.json.length === 1 && r.json[0].is_public === true,
+  check("B sees the public pledge and no private ones", r.status === 200 && suitePublicVisible(r.json) && !privatePledgeVisible(r.json),
     `saw ${r.json?.length}`);
   r = await api("/rest/v1/pledges?select=id,is_public", {});
-  check("anon sees only the public pledge", r.status === 200 && r.json.length === 1 && r.json[0].is_public === true,
+  check("anon sees the public pledge and no private ones", r.status === 200 && suitePublicVisible(r.json) && !privatePledgeVisible(r.json),
     `saw ${r.json?.length}`);
 
   // ── splits: member visibility ──
