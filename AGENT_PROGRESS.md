@@ -6,8 +6,32 @@ Session-continuity log. Updated at every phase gate.
 
 ## Status
 
-**Current phase:** Hardening pass, Phase B (dead surfaces) — ✅ complete and proven, awaiting gate confirmation
-**Next phase:** D — schedulers (keeper, witness lifecycle, send reconciler). Do not start without confirmation. The keeper subject's grace ends Aug 20 23:59:59 UTC.
+**Current phase:** Hardening pass, Phase D (schedulers) — ✅ deployed and observed in production, awaiting gate confirmation
+**Next phase:** E — cosmetics, hygiene, README. Do not start without confirmation.
+
+## Hardening Phase D — 2026-08-18
+
+One cron a minute on the API worker (`lib/schedulers.ts`), three idempotent
+tasks, all observed live:
+
+- **claimExpired keeper** — scans locked pledges past deadline + 72h grace,
+  slashes with the sponsor key; `simulateContract` is the idempotency and
+  race guard (AlreadyResolved / GracePeriodActive revert spending nothing);
+  the indexer ingests PledgeExpiredSlashed. Guard proven: simulation on the
+  keeper subject reverts inside the grace window. The live auto-slash fires
+  after 2026-08-20T23:59:59Z (subject `0063f654…`, on-chain `0xf936e524…`).
+- **Witness lifecycle** — T-24h reminder + at-deadline notification, in-app
+  for FLOAT-user witnesses, email for email witnesses, `pledge_events` as the
+  idempotency ledger (migration 20260818000001 extends its type check).
+  Observed live on the keeper subject: reminder at 23:40:55Z, at-deadline
+  notification at 00:00:54Z — 55 seconds after the deadline moment, making
+  the PledgeVault docstring's promise literally true.
+- **Send reconciler** — sweeps submitted sends against Particle (20/tick);
+  observed flipping a real send row to `confirmed` with no client involved.
+
+**CI note:** the `wrangler types` gate fix surfaced a type clash (generated
+runtime types shadow node:crypto's Buffer shape); the claim-token mint now
+uses Web Crypto and typecheck is green from a clean checkout.
 
 ## Hardening Phase B — 2026-08-17
 
